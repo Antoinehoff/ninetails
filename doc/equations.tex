@@ -1,0 +1,43 @@
+\section{Fluid Model Equations}
+
+We present here explicitly the fluid equations derived in the gyro-moment framework:
+
+\begin{align}
+\partial_t n &+ \{(1 - \ell_\perp)\phi, n\} + \{\ell_\perp \phi, T_\perp\} + 2\tau \mathcal{C}_\perp(T_\parallel - T_\perp + n) \nonumber\\
+&+ (\mathcal{C}_\parallel - \mathcal{C}_\parallel^B)\sqrt{\tau}\, u_\parallel + \left[(1 - \ell_\perp)i k_y R_N - \ell_\perp i k_y R_T\right]\phi = 0,\\
+\partial_t u_\parallel &+ \{(1 - \ell_\perp)\phi, u_\parallel\} + \{\ell_\perp \phi, q_\perp\} + n \mathcal{C}_\parallel\sqrt{\tau} + 4 \tau \mathcal{C}_\perp u_\parallel \nonumber\\
+&+ 6\tau \mathcal{C}_\perp q_\parallel - \tau \mathcal{C}_\perp q_\perp + 2(\mathcal{C}_\parallel - \mathcal{C}_\parallel^B)\sqrt{\tau} T_\parallel - \mathcal{C}_\parallel^B\sqrt{\tau} T_\perp = 0,\\
+\partial_t T_\parallel &+ \{(1 - \ell_\perp)\phi, T_\parallel\} + \{\ell_\perp \phi, P_\parallel^\perp\} + 6\tau \mathcal{C}_\perp T_\parallel + \frac{2}{3}\tau \mathcal{C}_\perp P_\parallel^\parallel - \tau \mathcal{C}_\perp P_\parallel^\perp \nonumber\\
+&+ 3\sqrt{\tau}(\mathcal{C}_\parallel - \mathcal{C}_\parallel^B) q_\parallel - 2\sqrt{\tau} \mathcal{C}_\parallel^B q_\perp + 2 \mathcal{C}_\parallel\sqrt{\tau} u_\parallel + \frac{(1 - \ell_\perp)}{2}i k_y R_T \phi = 0,\\
+\partial_t T_\perp &+ \{(1 - \tau \ell_\perp)\phi, T_\perp\} + \frac{1}{2}\{\ell_\perp \phi, P_\perp^\perp\} - \tau\{(1 - \ell_\perp)\phi, n\} + 4\tau \mathcal{C}_\perp T_\perp \nonumber\\
+&- \tau \mathcal{C}_\perp(n - 2P_{\perp\parallel} + 2P_{\perp\perp}) + \sqrt{\tau}(\mathcal{C}_\parallel - 2\mathcal{C}_\parallel^B) q_\perp + \mathcal{C}_\parallel^B\sqrt{\tau} u_\parallel \nonumber\\
+&+ \left[\ell_\perp i k_y R_N + (3\ell_\perp - 1) i k_y R_T\right]\phi = 0,\\
+\partial_t q_\parallel &+ \{\phi, q_\parallel\} - 2\sqrt{\tau}(\mathcal{C}_\parallel^B - \mathcal{C}_\parallel)P_\parallel^\parallel - 3\sqrt{\tau} \mathcal{C}_\parallel^B P_\parallel^\perp + 3 \mathcal{C}_\parallel\sqrt{\tau} T_\parallel = 0,\\
+\partial_t q_\perp &+ \{\phi, q_\perp\} - \{\phi, u_\parallel\} + 2\sqrt{\tau}(\mathcal{C}_\parallel - 2\mathcal{C}_\parallel^B)P_\parallel^\perp - 2\sqrt{\tau} \mathcal{C}_\parallel^B P_\perp^\perp \nonumber\\
+&+ \sqrt{\tau}(\mathcal{C}_\parallel + \mathcal{C}_\parallel^B)T_\perp + 2 \mathcal{C}_\parallel^B\sqrt{\tau} T_\parallel = 0,\\
+\partial_t P_\parallel^\parallel &+ \{\phi, P_\parallel^\parallel\} = 0, \\
+\partial_t P_\parallel^\perp &+ \{\phi, P_\parallel^\perp\} - \{\phi, T_\parallel\} = 0, \\
+\partial_t P_\perp^\perp &+ \{\phi, P_\perp^\perp\} - \frac{1}{2}\{\phi, T_\perp\} + \frac{1}{4}\{\phi, n\} = 0.
+\end{align}
+
+These equations are complemented by the quasineutrality condition
+
+\begin{equation}
+\left(1 - 2\left[\ell_\perp - \tau\ell_\perp^2\right]\right)\phi - \langle\phi\rangle_{yz} = n + \tau\ell_\perp(T_\perp - n),
+\end{equation}
+where $\langle \phi \rangle_{yz}$ is the flux surface average of $\phi$, namely
+\begin{equation}
+    \langle \phi \rangle_{yz} = \frac{1}{\int\dz J_{xyz}}\int\dz J_{xyz}\phi(k_x,k_y,z,t)\delta_{k_y0}.
+\end{equation}
+and
+\begin{align}
+\ell_\perp &= \frac{\tau}{2} k_\perp^2,\\
+k_\perp^2 &= g^{xx}k_x^2 + 2g^{xy}k_x k_y + g^{yy}k_y^2,
+\end{align}
+
+and the magnetic curvature operators defined as
+\begin{align}
+\mathcal{C}_{xy} &= -\left[\partial_y \ln B + \frac{\Gamma_2}{\Gamma_1}\partial_z \ln B\right]\frac{\partial}{\partial x} + \left[\partial_x \ln B - \frac{\Gamma_3}{\Gamma_1}\partial_z \ln B\right]\frac{\partial}{\partial y},\\
+\mathcal{C}_\parallel &= \frac{R_0}{J_{xyz}\hat{B}}\frac{\partial}{\partial z},\\
+\mathcal{C}_\parallel^{B} &= \mathcal{C}_\parallel\ln B.
+\end{align}
