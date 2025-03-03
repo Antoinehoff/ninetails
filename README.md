@@ -1,6 +1,6 @@
-# Ninetails: A Plasma Fluid Simulation Framework
+# Ninetails: A 9 gyro-moment based fluid model
 
-Ninetails is a Python-based framework for plasma physics simulations using a high-order fluid model derived from the gyro-moment approach. The code is designed to simulate plasma instabilities and turbulence in both linear and nonlinear regimes, with support for multiple geometry configurations.
+Ninetails is a Python-based framework for plasma physics simulations using a high-order fluid model derived from the gyro-moment approach (see Hoffmann et al. 2023). The code is designed to simulate plasma instabilities and turbulence in both linear and nonlinear regimes, with support for multiple geometry configurations.
 
 ## Overview
 
@@ -163,14 +163,10 @@ The `src/post_processing.py` module provides several visualization functions:
 - `plot_enstrophy_evolution`: Enstrophy evolution
 - `compute_growth_rates`: Linear growth rate analysis
 
-## Contributing
-
-Contributions to Ninetails are welcome! Please feel free to submit a Pull Request.
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgments
 
-This code implements the fluid model developed in [reference to relevant papers].
+This code implements the fluid model developed in [paper coming soon].
