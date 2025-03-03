@@ -117,10 +117,14 @@ output_dir: 'output'    # Directory for output files
 The fluid model equations are implemented based on the formulation in `doc/equations.tex`. The main equations are:
 
 1. **Density Evolution**: 
-   $$\partial_t n + \{(1 - \ell_\perp)\phi, n\} + \{\ell_\perp \phi, T_\perp\} + 2\tau \mathcal{C}_\perp(T_\parallel - T_\perp + n) + (\mathcal{C}_\parallel - \mathcal{C}_\parallel^B)\sqrt{\tau}\, u_\parallel + \left[(1 - \ell_\perp)i k_y R_N - \ell_\perp i k_y R_T\right]\phi = 0$$
+   ```math
+   \partial_t n + \{(1 - \ell_\perp)\phi, n\} + \{\ell_\perp \phi, T_\perp\} + 2\tau \mathcal{C}_\perp(T_\parallel - T_\perp + n) + (\mathcal{C}_\parallel - \mathcal{C}_\parallel^B)\sqrt{\tau}\, u_\parallel + \left[(1 - \ell_\perp)i k_y R_N - \ell_\perp i k_y R_T\right]\phi = 0
+   ```
 
 2. **Parallel Velocity Evolution**:
-   $$\partial_t u_\parallel + \{(1 - \ell_\perp)\phi, u_\parallel\} + \{\ell_\perp \phi, q_\perp\} + n \mathcal{C}_\parallel\sqrt{\tau} + 4 \tau \mathcal{C}_\perp u_\parallel + 6\tau \mathcal{C}_\perp q_\parallel - \tau \mathcal{C}_\perp q_\perp + 2(\mathcal{C}_\parallel - \mathcal{C}_\parallel^B)\sqrt{\tau} T_\parallel - \mathcal{C}_\parallel^B\sqrt{\tau} T_\perp = 0$$
+   ```math
+   \partial_t u_\parallel + \{(1 - \ell_\perp)\phi, u_\parallel\} + \{\ell_\perp \phi, q_\perp\} + n \mathcal{C}_\parallel\sqrt{\tau} + 4 \tau \mathcal{C}_\perp u_\parallel + 6\tau \mathcal{C}_\perp q_\parallel - \tau \mathcal{C}_\perp q_\perp + 2(\mathcal{C}_\parallel - \mathcal{C}_\parallel^B)\sqrt{\tau} T_\parallel - \mathcal{C}_\parallel^B\sqrt{\tau} T_\perp = 0
+   ```
 
 (and so on for the remaining equations)
 
