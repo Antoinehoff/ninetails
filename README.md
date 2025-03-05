@@ -1,4 +1,4 @@
-# Ninetails: A 9 gyro-moment based fluid model
+# Ninetails: A 9 Gyro-Moment Based Fluid Model
 
 Ninetails is a Python-based framework for plasma physics simulations using a high-order fluid model derived from the gyro-moment approach (see Hoffmann et al. 2023). The code is designed to simulate plasma instabilities and turbulence in both linear and nonlinear regimes, with support for multiple geometry configurations.
 
@@ -23,7 +23,7 @@ These equations are complemented by a quasineutrality condition for the electros
 - **Multiple Geometry Types**: Support for s-alpha (tokamak) and Z-pinch geometries
 - **Linear and Nonlinear Simulations**: Toggle nonlinear effects on/off
 - **Pseudospectral Method**: Fast spectral methods for spatial discretization with anti-aliasing
-- **Adaptive Time-Stepping**: Using SciPy's ODE solvers
+- **Adaptive and Fixed Time-Stepping**: Using SciPy's ODE solvers and custom RK4 integrator
 - **Diagnostics**: Energy and enstrophy tracking, growth rate analysis
 - **Post-Processing**: Visualization tools for simulation outputs
 - **Configuration System**: YAML-based configuration for easy parameter adjustments
@@ -40,7 +40,10 @@ ninetails/
 │   ├── poisson_solver.py  # Solver for quasineutrality equation
 │   ├── poisson_bracket.py # Poisson bracket calculator
 │   ├── diagnostics.py     # Energy and enstrophy calculation
-│   └── post_processing.py # Visualization and analysis tools
+│   ├── postprocessor.py   # Visualization and analysis tools
+│   ├── integrators.py     # Integration methods (RK4, RK45)
+│   ├── file_utils.py      # File handling utilities
+│   └── tools.py           # Utility functions
 ├── doc/                   # Documentation directory
 │   └── equations.tex      # Mathematical formulation of the model
 ├── simulation_config.yaml # Default simulation parameters
@@ -71,10 +74,15 @@ cd ninetails
 
 2. Run a simulation with default parameters:
 ```bash
-python src/main.py
+python src/run.py
 ```
 
-3. Check the output directory for results and visualizations:
+3. Analyze the result with the postprocessing routines:
+```bash
+python src/analyze.py output/solution.h5
+```
+
+4. Check the output directory for results and visualizations:
 ```bash
 ls output/figures/
 ```
@@ -105,11 +113,12 @@ numerical:
   Lz: 2.0               # Domain size in z
   dt: 0.001             # Initial time step
   max_time: 10.0        # Maximum simulation time
-  hyperdiffusion: 0.1   # Hyperdiffusion coefficient
+  muHD: 0.1             # Hyperdiffusion coefficient
   
 geometry_type: 'zpinch' # 'salpha' or 'zpinch'
 nonlinear: false        # Include nonlinear terms
 output_dir: 'output'    # Directory for output files
+nframes: 100            # Number of output frames
 ```
 
 ## Mathematical Model
@@ -148,14 +157,14 @@ To perform parameter scans, modify the `src/main.py` file to loop over different
 ```python
 # In src/main.py
 RN_values = [1.0, 2.0, 5.0, 10.0]
-for RN in RN_values:
+for RN in RN values:
     config.physical.RN = RN
     run_simulation(config)
 ```
 
 ## Visualization
 
-The `src/post_processing.py` module provides several visualization functions:
+The `src/postprocessor.py` module provides several visualization functions:
 
 - `plot_2D_snapshot`: 2D contour plots of fields
 - `plot_time_evolution`: Time evolution of specific modes
