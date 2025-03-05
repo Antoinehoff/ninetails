@@ -1,26 +1,30 @@
 
 # Default configuration for plasma fluid simulation
 physical:
-  tau: 1.0   # Temperature ratio (T_e/T_i)
-  RN: 2.0     # Density gradient scale length
-  RT: 7.0   # Temperature gradient scale length
+  tau: 0.001   # Temperature ratio (T_i/T_e)
+  RN: 1.0     # Density gradient scale length
+  RT: 3500.0   # Temperature gradient scale length
   eps: 0.1    # Inverse aspect ratio (for s-alpha geometry)
   shear: 0.0  # Magnetic shear (for s-alpha geometry)
   alpha_MHD: 0.0  # MHD alpha parameter (for s-alpha geometry)
   q0: 2.0     # Safety factor (for s-alpha geometry)
   R0: 1.0     # Major radius (for s-alpha geometry)
+  alpha: 0.1  # Adiabaticity parameter (for Hasegawa-Wakatani model)
+  kappa: 1.0  # Curvature parameter (for Hasegawa-Wakatani model)
   
 numerical:
-  nx: 33       # Number of grid points in x
-  ny: 32       # Number of grid points in y
+  nx: 64       # Number of grid points in x
+  ny: 64       # Number of grid points in y
   nz: 1        # Number of grid points in z
-  Lx: 100.0    # Domain size in x
-  Ly: 100.0    # Domain size in y
+  Lx: 40.0    # Domain size in x
+  Ly: 40.0    # Domain size in y
   Lz: 2.0      # Domain size in z (only used if nz > 1)
-  dt: 0.001    # Initial time step (for fixed-step methods)
-  max_time: 10.0  # Maximum simulation time
-  hyperdiffusion: 0.1  # Hyperdiffusion coefficient
-  
+  dt: 0.1     # Initial time step (for fixed-step methods)
+  max_time: 500.0  # Maximum simulation time
+  muHD: 0.01  # Hyperdiffusion coefficient
+
+model_type: 'HW' # '9GM' or 'HW'
 geometry_type: 'zpinch'  # 'salpha' or 'zpinch'
-nonlinear: false         # Include nonlinear terms
+nonlinear: true         # Include nonlinear terms
 output_dir: 'output'    # Directory for output files
+nframes: 200            # Number of output frames

@@ -4,20 +4,22 @@ from poisson_bracket import PoissonBracket
 from poisson_solver import PoissonSolver
 
 class HighOrderFluid:
-    def __init__(self, geometry, nonlinear=True):
+    def __init__(self, config, geometry):
         """
-        Initialize the fluid equation system based on the gyro-moment framework.
+        Initialize the fluid equation system based on the 9GM framework.
         
         Parameters:
         -----------
+        config : SimulationConfig
+            Configuration object containing all parameters
         geometry : Geometry
             Geometry object containing metric information and grid details
-        nonlinear : bool, optional
-            Whether to include nonlinear terms
         """
         self.geometry = geometry
-        self.p = geometry.params
-        self.nonlinear = nonlinear
+        self.p = config.physical
+        self.p.muHD = config.numerical.muHD
+        self.nonlinear = config.nonlinear
+        self.model_type = config.model_type
         
         # Extract grid parameters
         self.kx = geometry.kx
@@ -26,6 +28,8 @@ class HighOrderFluid:
         self.nkx = geometry.nkx
         self.nky = geometry.nky
         self.nz = geometry.nz
+        
+        self.dydt = np.array([np.zeros([self.nkx,self.nky,self.nz]) for i in range(10)],dtype=np.complex128)
         
         # Initialize zero array template
         kx_grid, ky_grid = np.meshgrid(self.kx, self.ky, indexing='ij')
@@ -39,10 +43,14 @@ class HighOrderFluid:
         
         # For compact notation in the equations
         self.kperp2 = geometry.kperp2
+        
+        self.kperp2_pos = self.kperp2.copy()
+        self.kperp2_pos[self.kperp2_pos == 0] = 1  # Avoid division by zero for poisson in HW
+        
         self.l_perp = geometry.l_perp
-        self.Cxy = geometry.Cxy  # Perpendicular curvature
-        self.Cz = geometry.Cz    # Parallel curvature
-        self.CBz = geometry.CBz  # Parallel magnetic curvature
+        self.Cperp = geometry.Cperp  # Perpendicular curvature
+        self.Cpar = geometry.Cpar    # Parallel curvature
+        self.CparB = geometry.CparB  # Parallel magnetic curvature
         self.iky = 1j * ky_grid[:, :, np.newaxis]
     
     def update_phi(self, y):
@@ -86,6 +94,29 @@ class HighOrderFluid:
         list of ndarrays
             Time derivatives of each moment (with dphidt=0)
         """
+        if self.model_type == '9GM':
+            return self.gyro_moment_rhs(t, y)
+        elif self.model_type == 'HW':
+            return self.hasegawa_wakatani_rhs(t, y)
+        else:
+            raise ValueError("Unknown solver type: {}".format(self.model_type))
+    
+    def gyro_moment_rhs(self, t, y):
+        """
+        Compute the right-hand side of the fluid equations using the 9GM framework.
+        
+        Parameters:
+        -----------
+        t : float
+            Current time
+        y : list of ndarrays
+            List containing [N, u_par, T_par, T_perp, q_par, q_perp, P_parpar, P_perppar, P_perpperp, phi]
+            
+        Returns:
+        --------
+        list of ndarrays
+            Time derivatives of each moment (with dphidt=0)
+        """
         # First update phi based on the Poisson equation
         y = self.update_phi(y)
         
@@ -104,12 +135,10 @@ class HighOrderFluid:
         dP_parpar_dt = np.zeros_like(P_parpar)
         dP_perppar_dt = np.zeros_like(P_perppar)
         dP_perpperp_dt = np.zeros_like(P_perpperp)
-        dphidt = np.zeros_like(phi)  # phi is determined by constraint, so dphidt=0
         
         # Prepare modified potentials for Poisson brackets
         phi_mod1 = (1 - self.l_perp) * phi
         phi_mod2 = self.l_perp * phi
-        phi_mod3 = (1 - tau * self.l_perp) * phi  # For T_perp equation
         
         # Compute the nonlinear terms using Poisson brackets if enabled
         if self.nonlinear:
@@ -126,9 +155,9 @@ class HighOrderFluid:
             dT_par_dt -= self.pb.compute(phi_mod2, P_perppar)
             
             # Equation (A4): perpendicular temperature
-            dT_perp_dt -= self.pb.compute(phi_mod3, T_perp)  # Corrected with phi_mod3
+            dT_perp_dt -= self.pb.compute(phi_mod1, T_perp)  # Corrected with phi_mod3
             dT_perp_dt -= 0.5 * self.pb.compute(phi_mod2, P_perpperp)
-            dT_perp_dt -= tau * self.pb.compute(phi_mod1, N)  # Corrected sign
+            dT_perp_dt += tau * self.pb.compute(phi_mod1, N)  # Corrected sign
             
             # Equation (A5): parallel heat flux
             dq_par_dt -= self.pb.compute(phi, q_par)
@@ -152,48 +181,91 @@ class HighOrderFluid:
         # Add linear terms (always included)
         
         # Equation (A1): density
-        dN_dt -= 2 * tau * self.Cxy * (T_par - T_perp + N)  # Corrected to use Cxy
-        dN_dt -= (self.Cz - self.CBz) * sqrt_tau * u_par
+        dN_dt -= 2 * tau * self.Cperp * (T_par - T_perp + N)
+        dN_dt -= (self.Cpar - self.CparB) * sqrt_tau * u_par
         dN_dt -= ((1 - self.l_perp) * self.iky * self.p.RN - self.l_perp * self.iky * self.p.RT) * phi
         
         # Equation (A2): parallel velocity
-        du_par_dt -= N * self.Cz * sqrt_tau  # Corrected to include N multiplier
-        du_par_dt -= 4 * tau * self.Cxy * u_par  # Corrected to use Cxy
-        du_par_dt -= 6 * tau * self.Cxy * q_par  # Corrected to use Cxy
-        du_par_dt += tau * self.Cxy * q_perp  # Corrected to use Cxy and sign
-        du_par_dt -= 2 * (self.Cz - self.CBz) * sqrt_tau * T_par
-        du_par_dt -= self.CBz * sqrt_tau * T_perp
+        du_par_dt -= N * self.Cpar * sqrt_tau
+        du_par_dt -= 4 * tau * self.Cperp * u_par
+        du_par_dt -= 6 * tau * self.Cperp * q_par
+        du_par_dt += tau * self.Cperp * q_perp
+        du_par_dt -= 2 * (self.Cpar - self.CparB) * sqrt_tau * T_par
+        du_par_dt += self.CparB * sqrt_tau * T_perp
         
         # Equation (A3): parallel temperature
-        dT_par_dt -= 6 * tau * self.Cxy * T_par  # Corrected to use Cxy
-        dT_par_dt -= (2/3) * tau * self.Cxy * P_parpar  # Corrected to use Cxy and sign
-        dT_par_dt += tau * self.Cxy * P_perppar  # Corrected to use Cxy and sign
-        dT_par_dt -= 3 * sqrt_tau * (self.Cz - self.CBz) * q_par
-        dT_par_dt += 2 * sqrt_tau * self.CBz * q_perp  # Corrected sign
-        dT_par_dt -= 2 * self.Cz * sqrt_tau * u_par
+        dT_par_dt -= 6 * tau * self.Cperp * T_par
+        dT_par_dt -= (2/3) * tau * self.Cperp * P_parpar
+        dT_par_dt += tau * self.Cperp * P_perppar
+        dT_par_dt -= 3 * sqrt_tau * (self.Cpar - self.CparB) * q_par
+        dT_par_dt += 2 * sqrt_tau * self.CparB * q_perp
+        dT_par_dt -= 2 * self.Cpar * sqrt_tau * u_par
         dT_par_dt -= ((1 - self.l_perp) / 2) * self.iky * self.p.RT * phi
         
         # Equation (A4): perpendicular temperature
-        dT_perp_dt -= 4 * tau * self.Cxy * T_perp  # Corrected to use Cxy
-        dT_perp_dt += tau * self.Cxy * (N - 2 * P_perppar + 2 * P_perpperp)  # Corrected to use Cxy and sign
-        dT_perp_dt += sqrt_tau * (self.Cz - 2 * self.CBz) * q_perp  # Corrected sign
-        dT_perp_dt += self.CBz * sqrt_tau * u_par
+        dT_perp_dt -= 4 * tau * self.Cperp * T_perp
+        dT_perp_dt += tau * self.Cperp * (N - 2 * P_perppar + 2 * P_perpperp)
+        dT_perp_dt -= sqrt_tau * (self.Cpar - 2 * self.CparB) * q_perp 
+        dT_perp_dt -= self.CparB * sqrt_tau * u_par
         dT_perp_dt -= (self.l_perp * self.iky * self.p.RN + (3 * self.l_perp - 1) * self.iky * self.p.RT) * phi
         
         # Equation (A5): parallel heat flux
         dq_par_dt -= self.pb.compute(phi, q_par)
-        dq_par_dt += 2 * sqrt_tau * (self.CBz - self.Cz) * P_parpar
-        dq_par_dt += 3 * sqrt_tau * self.CBz * P_perppar
-        dq_par_dt -= 3 * self.Cz * sqrt_tau * T_par
+        dq_par_dt += 2 * sqrt_tau * (self.CparB - self.Cpar) * P_parpar
+        dq_par_dt += 3 * sqrt_tau * self.CparB * P_perppar
+        dq_par_dt -= 3 * self.Cpar * sqrt_tau * T_par
         
         # Equation (A6): perpendicular heat flux
         dq_perp_dt -= self.pb.compute(phi, q_perp)
         dq_perp_dt += self.pb.compute(phi, u_par)
-        dq_perp_dt += 2 * sqrt_tau * (self.Cz - 2 * self.CBz) * P_perppar  # Corrected sign
-        dq_perp_dt += 2 * sqrt_tau * self.CBz * P_perpperp
-        dq_perp_dt -= sqrt_tau * (self.Cz + self.CBz) * T_perp
-        dq_perp_dt -= 2 * self.CBz * sqrt_tau * T_par
+        dq_perp_dt -= 2 * sqrt_tau * (self.Cpar - 2 * self.CparB) * P_perppar
+        dq_perp_dt += 2 * sqrt_tau * self.CparB * P_perpperp
+        dq_perp_dt -= sqrt_tau * (self.Cpar + self.CparB) * T_perp
+        dq_perp_dt -= 2 * self.CparB * sqrt_tau * T_par
         
         # Return the derivatives, including dphidt=0
-        return [dN_dt, du_par_dt, dT_par_dt, dT_perp_dt, dq_par_dt, dq_perp_dt, 
-                dP_parpar_dt, dP_perppar_dt, dP_perpperp_dt, dphidt]
+        return np.array([dN_dt, du_par_dt, dT_par_dt, dT_perp_dt, dq_par_dt, dq_perp_dt, 
+                dP_parpar_dt, dP_perppar_dt, dP_perpperp_dt, np.zeros_like(phi)])
+    
+    def hasegawa_wakatani_rhs(self, t, y):
+        """
+        Compute the right-hand side of the fluid equations using the HW model.
+        
+        Parameters:
+        -----------
+        t : float
+            Current time
+        y : list of ndarrays
+            List containing [n, phi]
+            
+        Returns:
+        --------
+        list of ndarrays
+            Time derivatives of each moment (with dphidt=0)
+        """
+        # Unpack the moments
+        n = y[0]
+        zeta = y[1]
+        
+        phi = -zeta/self.kperp2_pos
+        phi[self.kperp2 == 0] = 0
+        
+        n_nz = n #- self.poisson_solver.compute_flux_surface_average(n)
+        phi_nz = phi #- self.poisson_solver.compute_flux_surface_average(phi)
+        
+        # Density equation
+        self.dydt[0] = self.p.alpha * (phi_nz - n_nz) \
+                     - self.p.kappa * self.iky * phi \
+                     - self.p.muHD * self.kperp2**2 * n
+        
+        # Vorticity equation
+        self.dydt[1] = self.p.alpha * (phi_nz - n_nz) \
+                     - self.p.muHD * self.kperp2**2 * zeta
+        
+        # Compute the nonlinear terms using Poisson brackets if enabled
+        if self.nonlinear:
+            self.dydt[0] -= self.pb.compute(phi, n)
+            self.dydt[1] -= self.pb.compute(phi, zeta)
+        
+        # Return the derivatives, including dphidt=0
+        return self.dydt

@@ -26,9 +26,9 @@ class Geometry:
         self.nz = len(z)
         
         # Initialize arrays
-        self.Cxy = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
-        self.Cz = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
-        self.CBz = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        self.Cperp = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        self.Cpar = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        self.CparB = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
         
         # Compute metric coefficients
         self.metrics = self.compute_metrics()
@@ -88,9 +88,9 @@ class Geometry:
         """
         Compute all curvature operators
         """
-        self.Cxy = self.compute_Cxy()
-        self.Cz = self.compute_Cz()
-        self.CBz = self.compute_CBz()
+        self.Cperp = self.compute_Cxy()
+        self.Cpar = self.compute_Cz()
+        self.CparB = self.compute_CBz()
     
     def compute_Cxy(self):
         """
@@ -250,7 +250,7 @@ class SAlphaGeometry(Geometry):
             lnB = np.log(self.hatB[iz])
             
             # Apply to all k modes
-            CBz[:, :, iz] = self.Cz[:, :, iz] * lnB
+            CBz[:, :, iz] = self.Cpar[:, :, iz] * lnB
         
         return CBz
 

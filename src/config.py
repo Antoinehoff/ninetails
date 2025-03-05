@@ -7,7 +7,7 @@ from typing import Optional
 @dataclass
 class PhysicalParams:
     # Core parameters
-    tau: float  # Temperature ratio (T_e/T_i)
+    tau: float  # Temperature ratio (T_i/T_e)
     RN: float   # Density gradient scale length
     RT: float   # Temperature gradient scale length
     
@@ -18,9 +18,9 @@ class PhysicalParams:
     q0: float = 2.0         # Safety factor
     R0: float = 1.0         # Major radius
     
-    # Additional physical parameters
-    hyperviscosity: float = 0.0   # Hyperviscosity coefficient
-    diffusion: float = 0.0       # Particle diffusion coefficient
+    # Hasegawa-Wakatani parameters
+    alpha: float = 0.5  # adiabaticity parameter
+    kappa: float = 1.0  # curvature parameter
 
 @dataclass
 class NumericalParams:
@@ -40,7 +40,7 @@ class NumericalParams:
     # Solver parameters
     atol: float = 1e-8  # Absolute tolerance for adaptive solver
     rtol: float = 1e-6  # Relative tolerance for adaptive solver
-    hyperdiffusion: float = 0.0  # Hyperdiffusion coefficient
+    muHD: float = 0.0  # Hyperdiffusion coefficient
 
 @dataclass
 class SimulationConfig:
@@ -49,6 +49,9 @@ class SimulationConfig:
     geometry_type: str  # 'salpha' or 'zpinch'
     nonlinear: bool
     output_dir: str
+    input_file: str
+    model_type: str # '9GM' or 'HW'
+    nframes: int = 100
     restart: bool = False
     restart_file: Optional[str] = None
     save_restart: bool = False
@@ -69,6 +72,7 @@ class SimulationConfig:
         SimulationConfig
             Configuration object
         """
+
         with open(filename, 'r') as f:
             config_data = yaml.safe_load(f)
         
@@ -83,8 +87,8 @@ class SimulationConfig:
             alpha_MHD=phys_data.get('alpha_MHD', 0.0),
             q0=phys_data.get('q0', 2.0),
             R0=phys_data.get('R0', 1.0),
-            hyperviscosity=phys_data.get('hyperviscosity', 0.0),
-            diffusion=phys_data.get('diffusion', 0.0)
+            alpha=phys_data.get('alpha', 0.5),
+            kappa=phys_data.get('kappa', 1.0)
         )
         
         # Handle numerical parameters
@@ -101,7 +105,7 @@ class SimulationConfig:
             n_outputs=num_data.get('n_outputs', 100),
             atol=num_data.get('atol', 1e-8),
             rtol=num_data.get('rtol', 1e-6),
-            hyperdiffusion=num_data.get('hyperdiffusion', 0.0)
+            muHD=num_data.get('muHD', 0.0)
         )
         
         # Create and return the config object
@@ -110,6 +114,9 @@ class SimulationConfig:
             numerical=num,
             geometry_type=config_data.get('geometry_type', 'zpinch'),
             nonlinear=config_data.get('nonlinear', True),
+            model_type=config_data.get('model_type', '9GM'),
+            input_file=filename,
+            nframes=config_data.get('nframes', 100),
             output_dir=config_data.get('output_dir', 'output'),
             restart=config_data.get('restart', False),
             restart_file=config_data.get('restart_file', None),
@@ -132,6 +139,8 @@ class SimulationConfig:
             'numerical': asdict(self.numerical),
             'geometry_type': self.geometry_type,
             'nonlinear': self.nonlinear,
+            'model_type': self.model_type,
+            'nframes': self.nframes,
             'output_dir': self.output_dir,
             'restart': self.restart,
             'restart_file': self.restart_file,
@@ -177,7 +186,10 @@ class SimulationConfig:
             numerical=num,
             geometry_type='zpinch',
             nonlinear=True,
-            output_dir='output'
+            nframes=100,
+            input_file=filename,
+            output_dir='output',
+            model_type= '9GM',
         )
         
         # Save to file

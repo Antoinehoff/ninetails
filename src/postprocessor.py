@@ -3,9 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from poisson_solver import PoissonSolver
+from tools import get_grids
 
 class PostProcessor:
-    def __init__(self, solution, nx, ny, nz, x, y, z):
+    def __init__(self, diagnostics):
         """
         Initialize the post-processing module.
         
@@ -20,16 +21,32 @@ class PostProcessor:
         x, y, z : ndarray
             Coordinate arrays
         """
-        self.solution = solution
-        self.t = solution['t']
-        self.moments = solution['moments']
-        
-        self.nx = nx
-        self.ny = ny
-        self.nz = nz
-        self.x = x
-        self.y = y
-        self.z = z
+        self.diagnostics = diagnostics
+        self.t = diagnostics.frames['t']
+        self.fields = diagnostics.frames['fields']
+
+        self.mn2idx = {
+            'dens': 0,
+            'n': 0,
+            'N': 0,
+            'upar': 1,
+            'zeta': 1,
+            'Tpar': 2,
+            'Tperp': 3,
+            'qpar': 4,
+            'qperp': 5,
+            'Pparpar': 6,
+            'Pperppar': 7,
+            'Pperpperp': 8,
+            'phi': -1
+        }
+        grids = get_grids(diagnostics.config.numerical)
+        self.x = grids['x']
+        self.y = grids['y']
+        self.z = grids['z']
+        self.nx = len(self.x)
+        self.ny = len(self.y)
+        self.nz = len(self.z)
         
         # Create output directory
         self.output_dir = 'output/figures'
@@ -51,13 +68,13 @@ class PostProcessor:
         ndarray
             Moment data in Fourier space
         """
-        if moment_name not in self.moments:
+        if moment_name not in self.mn2idx.keys():
             raise ValueError(f"Unknown moment: {moment_name}")
         
         if time_idx is not None:
-            return self.moments[moment_name][..., time_idx]
+            return self.fields[time_idx][self.mn2idx[moment_name]]
         else:
-            return self.moments[moment_name]
+            return self.fields[:,self.mn2idx[moment_name],:,:,:]
     
     def to_real_space(self, data_hat):
         """
@@ -77,13 +94,13 @@ class PostProcessor:
         has_time = len(data_hat.shape) > 3
         
         if has_time:
-            nt = data_hat.shape[-1]
-            data_real = np.zeros((self.nx, self.ny, self.nz, nt))
+            nt = data_hat.shape[0]
+            data_real = np.zeros((nt, self.nx, self.ny, self.nz))
             
             # Loop over time and z
             for it in range(nt):
                 for iz in range(self.nz):
-                    data_real[:, :, iz, it] = np.fft.irfft2(data_hat[:, :, iz, it], s=(self.nx, self.ny))
+                    data_real[it, :, :, iz] = np.squeeze(np.fft.irfft2(data_hat[it, :, :, iz], s=(self.nx, self.ny)))
         else:
             data_real = np.zeros((self.nx, self.ny, self.nz))
             
@@ -152,7 +169,7 @@ class PostProcessor:
         
         return phi_avg
         
-    def plot_2D_snapshot(self, moment_name, time_idx=0, z_idx=0):
+    def plot_2D_snapshot(self, moment_name, time_idx=0, z_idx=0, filename=''):
         """
         Plot a 2D snapshot of a moment at a specific time and z.
         
@@ -177,7 +194,8 @@ class PostProcessor:
         # Create the plot
         fig, ax = plt.subplots(figsize=(8, 6))
         im = ax.imshow(z_plane.T, origin='lower', extent=[0, self.x[-1], 0, self.y[-1]], 
-                      aspect='auto', cmap='RdBu_r')
+                      aspect='auto', cmap='RdBu_r', interpolation='quadric')
+        # im = ax.pcolormesh(self.x, self.y, z_plane.T, cmap='RdBu_r')
         plt.colorbar(im, ax=ax, label=f'{moment_name}')
         
         ax.set_xlabel('x')
@@ -186,7 +204,8 @@ class PostProcessor:
         
         # Save the figure
         plt.tight_layout()
-        fig.savefig(f'{self.output_dir}/{moment_name}_t{time_idx}_z{z_idx}.png', dpi=150)
+        filename = f'{self.output_dir}/{filename}' if filename else f'{self.output_dir}/{moment_name}_t{time_idx}_z{z_idx}.png'
+        fig.savefig(filename, dpi=150)
         plt.close(fig)
     
     def plot_time_evolution(self, moment_name, kx_idx=1, ky_idx=1, z_idx=0):
@@ -208,7 +227,7 @@ class PostProcessor:
         data_hat = self.get_moment_data(moment_name)
         
         # Extract the time series for the specified mode
-        mode_data = data_hat[kx_idx, ky_idx, z_idx, :]
+        mode_data = data_hat[:, kx_idx, ky_idx, z_idx]
         
         # Create the plot
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -240,11 +259,11 @@ class PostProcessor:
             return
         
         # Extract time and energy components
-        times = [entry['t'] for entry in energy_history]
-        kinetic = [entry['kinetic'] for entry in energy_history]
-        thermal = [entry['thermal'] for entry in energy_history]
-        potential = [entry['potential'] for entry in energy_history]
-        total = [entry['total'] for entry in energy_history]
+        times = energy_history['t']
+        kinetic = energy_history['kinetic']
+        thermal = energy_history['thermal']
+        potential = energy_history['potential']
+        total = energy_history['total']
         
         # Create the plot
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -277,8 +296,8 @@ class PostProcessor:
             return
         
         # Extract time and enstrophy
-        times = [entry['t'] for entry in enstrophy_history]
-        enstrophy = [entry['enstrophy'] for entry in enstrophy_history]
+        times = enstrophy_history['t']
+        enstrophy = enstrophy_history['enstrophy']
         
         # Create the plot
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -315,9 +334,9 @@ class PostProcessor:
         
         # Set default indices if not provided
         if indices is None:
-            nt = phi_real.shape[-1]
+            nt = phi_real.shape[0]
             indices = [0, nt//2, -1]
-        
+ 
         # For each time index
         for idx in indices:
             t_val = self.t[idx]
@@ -329,19 +348,19 @@ class PostProcessor:
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
             
             # Plot phi
-            im1 = ax1.imshow(phi_real[:, :, z_idx, idx].T, origin='lower', 
+            im1 = ax1.imshow(phi_real[idx, :, :, z_idx].T, origin='lower', 
                            extent=[0, self.x[-1], 0, self.y[-1]], cmap='RdBu_r',
-                           aspect='auto')
+                           aspect='auto',interpolation='quadric')
             plt.colorbar(im1, ax=ax1, label='phi')
             ax1.set_xlabel('x')
             ax1.set_ylabel('y')
             ax1.set_title(f'phi at t={t_val:.2f}, z={self.z[z_idx]:.2f}')
             
             # Plot phi - <phi>
-            phi_diff = phi_real[:, :, z_idx, idx] - phi_avg_real[:, :, z_idx, idx]
+            phi_diff = phi_real[idx, :, :, z_idx] - phi_avg_real[idx, :, :, z_idx]
             im2 = ax2.imshow(phi_diff.T, origin='lower', 
                            extent=[0, self.x[-1], 0, self.y[-1]], cmap='RdBu_r',
-                           aspect='auto')
+                           aspect='auto',interpolation='quadric')
             plt.colorbar(im2, ax=ax2, label='phi - <phi>')
             ax2.set_xlabel('x')
             ax2.set_ylabel('y')
@@ -376,7 +395,7 @@ class PostProcessor:
         
         # Set default time window if not provided (use second half of simulation time)
         if time_window is None:
-            nt = data_hat.shape[-1]
+            nt = data_hat.shape[0]
             time_window = (nt // 2, nt - 1)
         
         # Extract time range
@@ -391,7 +410,7 @@ class PostProcessor:
         for ikx in range(self.nx):
             for iky in range(self.ny // 2 + 1):
                 # Extract mode amplitude over time
-                mode_data = data_hat[ikx, iky, z_idx, t_start:t_end+1]
+                mode_data = data_hat[t_start:t_end+1, ikx, iky, z_idx]
                 amplitude = np.abs(mode_data)
                 
                 # Store maximum amplitude
@@ -454,12 +473,15 @@ class PostProcessor:
         growth_rates_plot[growth_rates_plot < 0] = 0
         
         # Plot the growth rate spectrum
-        im = ax.imshow(growth_rates_plot, origin='lower', extent=extent, 
-                    aspect='auto', cmap='plasma')
+        # im = ax.imshow(growth_rates_plot, origin='lower', extent=extent, 
+        #             aspect='auto', cmap='plasma')
+        KX, KY = np.meshgrid(np.sort(kx_values), ky_values, indexing='ij')
+        growth_rates_plot = np.fft.fftshift(growth_rates_plot, axes=0)
+        im = ax.pcolormesh(KX, KY, growth_rates_plot, cmap='plasma')
         plt.colorbar(im, ax=ax, label='Growth Rate (γ)')
         
-        ax.set_xlabel('ky')
-        ax.set_ylabel('kx')
+        ax.set_xlabel('kx')
+        ax.set_ylabel('ky')
         ax.set_title(f'Linear Growth Rate Spectrum for {moment_name}')
         
         # Save the figure
@@ -543,7 +565,7 @@ class PostProcessor:
         
         # Plot the fastest growing mode
         ikx, iky = max_idx
-        mode_data = data_hat[ikx, iky, z_idx, t_start:t_end+1]
+        mode_data = data_hat[t_start:t_end+1, ikx, iky, z_idx]
         amplitude = np.abs(mode_data)
         
         # Plot amplitude in log scale
@@ -565,7 +587,7 @@ class PostProcessor:
         # Plot another growing mode if available
         if other_growing:
             ikx, iky = other_growing
-            mode_data = data_hat[ikx, iky, z_idx, t_start:t_end+1]
+            mode_data = data_hat[t_start:t_end+1, ikx, iky, z_idx]
             amplitude = np.abs(mode_data)
             
             axs[1].semilogy(times, amplitude, 'b-', label='Amplitude')
@@ -589,7 +611,7 @@ class PostProcessor:
         # Plot damped mode if available
         if min_idx:
             ikx, iky = min_idx
-            mode_data = data_hat[ikx, iky, z_idx, t_start:t_end+1]
+            mode_data = data_hat[t_start:t_end+1, ikx, iky, z_idx]
             amplitude = np.abs(mode_data)
             
             axs[2].semilogy(times, amplitude, 'b-', label='Amplitude')
@@ -613,7 +635,7 @@ class PostProcessor:
         # Plot the zonal mode (kx=any, ky=0) which is often important in plasma turbulence
         ky0_idx = 0
         kx_middle = self.nx // 4  # Use a mid-range kx
-        mode_data = data_hat[kx_middle, ky0_idx, z_idx, t_start:t_end+1]
+        mode_data = data_hat[t_start:t_end+1, kx_middle, ky0_idx, z_idx]
         amplitude = np.abs(mode_data)
         
         axs[3].semilogy(times, amplitude, 'b-', label='Amplitude')

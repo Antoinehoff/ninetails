@@ -2,7 +2,7 @@
 import numpy as np
 
 class PoissonBracket:
-    def __init__(self, kx, ky):
+    def __init__(self, kx, ky, AA_method='filtering'):
         """
         Initialize the Poisson bracket calculator.
         
@@ -12,14 +12,35 @@ class PoissonBracket:
             Radial wavenumbers (2D array)
         ky : ndarray
             Binormal wavenumbers (2D array)
+        method : str
+            Method to use for anti-aliasing. Options are 'filtering' and 'padding'
         """
+        self.AA_method = AA_method
         self.kx = kx
         self.ky = ky
-        self.nx, self.ny = kx.shape
+        self.nkx, self.nky = kx.shape
+        self.nx = self.nkx
+        self.ny = 2 * self.nky - 1
+        self.mult_factor = 2*np.pi/kx[1,0] * 2*np.pi/ky[0,1]
         
         # Calculate dealiasing pad sizes (using 3/2 rule)
         self.nx_pad = int(self.nx * 3 / 2)
         self.ny_pad = int(self.ny * 3 / 2)
+                
+        # Select the anti-aliasing method
+        if self.AA_method == 'filtering':
+            # create the filtering array
+            kx_cut = 2./3. * np.max(np.abs(kx))
+            ky_cut = 2./3. * np.max(np.abs(ky))
+            self.filter = np.ones((self.nkx, self.nky))
+            self.filter[np.abs(kx) >= kx_cut] = 0.0
+            self.filter[np.abs(ky) >= ky_cut] = 0.0
+            self.compute = self.compute_filtering
+        elif self.AA_method == 'padding':
+            self.compute = self.compute_padding
+        else:
+            raise ValueError("Invalid anti-aliasing method")
+
     
     def pad(self, f_hat):
         """
@@ -85,8 +106,88 @@ class PoissonBracket:
             f_hat = f_hat_padded[pad_x:pad_x+self.nx, pad_y:pad_y+self.ny]
             
         return f_hat
+    
+    def convolution_theorem(self, f, g):
+        """
+        Compute the convolution of two functions using the convolution theorem.
         
-    def compute(self, a_hat, b_hat):
+        Parameters:
+        -----------
+        f : ndarray
+            First function in real space
+        g : ndarray
+            Second function in real space
+            
+        Returns:
+        --------
+        ndarray
+            Convolution of f and g in real space
+        """
+        # Compute Fourier transforms
+        s = (self.nx, self.ny)
+        axes = (-2,-1)
+        norm = 'backward'
+        f_hat = np.fft.irfft2(f, s=s, axes=axes, norm=norm)
+        g_hat = np.fft.irfft2(g, s=s, axes=axes, norm=norm)
+        
+        # Compute product in Fourier space
+        fg_hat = f_hat * g_hat
+        
+        # Transform back to real space
+        norm = 'forward'
+        fg = np.fft.rfft2(fg_hat, s=s, axes=axes, norm=norm)
+        
+        return fg * self.mult_factor
+        
+    def compute_filtering(self, a_hat, b_hat):
+        
+        if a_hat.shape != b_hat.shape:
+            raise ValueError("Input arrays must have the same shape")
+        
+        # Determine if we have a z dimension
+        has_z = len(a_hat.shape) > 2
+        z_dim = a_hat.shape[2] if has_z else 1
+        
+        # Initialize the result array
+        result_shape = a_hat.shape
+        result = np.zeros(result_shape, dtype=np.complex128)
+        
+        ky_pb_2d = self.kx
+        kx_pb_2d = self.ky
+        
+        # Loop over z dimension if present
+        for iz in range(z_dim):
+            # Extract 2D slices if we have a z dimension
+            a_hat_2d = a_hat[:, :, iz] if has_z else a_hat
+            b_hat_2d = b_hat[:, :, iz] if has_z else b_hat
+
+            # Apply the 2/3 rule filter
+            a_hat_pb = self.filter * a_hat_2d
+            b_hat_pb = self.filter * b_hat_2d
+            
+            # Compute derivatives in Fourier space
+            da_dx_pb = 1j * kx_pb_2d * a_hat_pb
+            da_dy_pb = 1j * ky_pb_2d * a_hat_pb
+            db_dx_pb = 1j * kx_pb_2d * b_hat_pb
+            db_dy_pb = 1j * ky_pb_2d * b_hat_pb
+            
+            # Compute Poisson bracket in Fourier space using convolution theorem
+            pb_hat_pb = self.convolution_theorem(da_dx_pb, db_dy_pb) \
+                       -self.convolution_theorem(da_dy_pb, db_dx_pb)
+            
+            # Filter the result
+            pb_hat = self.filter * pb_hat_pb
+            
+            # Store the result
+            if has_z:
+                result[:, :, iz] = pb_hat
+            else:
+                result = pb_hat
+        
+        return result
+    
+       
+    def compute_padding(self, a_hat, b_hat):
         """
         Compute the Poisson bracket {a,b} = (∂a/∂x)(∂b/∂y) - (∂a/∂y)(∂b/∂x)
         using a pseudo-spectral method with anti-aliasing.
@@ -115,14 +216,14 @@ class PoissonBracket:
         result = np.zeros(result_shape, dtype=np.complex128)
         
         # Create padded wavenumbers when needed
-        kx_pad_2d = np.zeros((self.nx_pad, self.ny_pad))
-        ky_pad_2d = np.zeros((self.nx_pad, self.ny_pad))
+        kx_pb_2d = np.zeros((self.nx_pad, self.ny_pad))
+        ky_pb_2d = np.zeros((self.nx_pad, self.ny_pad))
         
         # Fill padded wavenumbers
         pad_x = (self.nx_pad - self.nx) // 2
         pad_y = (self.ny_pad - self.ny) // 2
-        kx_pad_2d[pad_x:pad_x+self.nx, pad_y:pad_y+self.ny] = self.kx
-        ky_pad_2d[pad_x:pad_x+self.nx, pad_y:pad_y+self.ny] = self.ky
+        kx_pb_2d[pad_x:pad_x+self.nx, pad_y:pad_y+self.ny] = self.kx
+        ky_pb_2d[pad_x:pad_x+self.nx, pad_y:pad_y+self.ny] = self.ky
         
         # Loop over z dimension if present
         for iz in range(z_dim):
@@ -131,29 +232,21 @@ class PoissonBracket:
             b_hat_2d = b_hat[:, :, iz] if has_z else b_hat
             
             # Pad the arrays for anti-aliasing
-            a_hat_pad = self.pad(a_hat_2d)
-            b_hat_pad = self.pad(b_hat_2d)
+            a_hat_pb = self.pad(a_hat_2d)
+            b_hat_pb = self.pad(b_hat_2d)
             
             # Compute derivatives in Fourier space
-            da_dx_pad = 1j * kx_pad_2d * a_hat_pad
-            da_dy_pad = 1j * ky_pad_2d * a_hat_pad
-            db_dx_pad = 1j * kx_pad_2d * b_hat_pad
-            db_dy_pad = 1j * ky_pad_2d * b_hat_pad
+            da_dx_pb = 1j * kx_pb_2d * a_hat_pb
+            da_dy_pb = 1j * ky_pb_2d * a_hat_pb
+            db_dx_pb = 1j * kx_pb_2d * b_hat_pb
+            db_dy_pb = 1j * ky_pb_2d * b_hat_pb
             
-            # Transform to real space for multiplication
-            da_dx_real = np.fft.irfft2(da_dx_pad)
-            da_dy_real = np.fft.irfft2(da_dy_pad)
-            db_dx_real = np.fft.irfft2(db_dx_pad)
-            db_dy_real = np.fft.irfft2(db_dy_pad)
-            
-            # Compute Poisson bracket in real space
-            pb_real = da_dx_real * db_dy_real - da_dy_real * db_dx_real
-            
-            # Transform back to Fourier space
-            pb_hat_pad = np.fft.rfft2(pb_real)
+            # Compute Poisson bracket in Fourier space using convolution theorem
+            pb_hat_pb = self.convolution_theorem(da_dx_pb, db_dy_pb) \
+                       -self.convolution_theorem(da_dy_pb, db_dx_pb)
             
             # Unpad the result
-            pb_hat = self.unpad(pb_hat_pad)
+            pb_hat = self.unpad(pb_hat_pb)
             
             # Store the result
             if has_z:

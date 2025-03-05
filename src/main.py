@@ -261,14 +261,16 @@ def create_default_config(filename):
     config_data = """
 # Default configuration for plasma fluid simulation
 physical:
-  tau: 0.01   # Temperature ratio (T_e/T_i)
+  tau: 0.001   # Temperature ratio (T_i/T_e)
   RN: 1.0     # Density gradient scale length
-  RT: 100.0   # Temperature gradient scale length
+  RT: 3500.0   # Temperature gradient scale length
   eps: 0.1    # Inverse aspect ratio (for s-alpha geometry)
   shear: 0.0  # Magnetic shear (for s-alpha geometry)
   alpha_MHD: 0.0  # MHD alpha parameter (for s-alpha geometry)
   q0: 2.0     # Safety factor (for s-alpha geometry)
   R0: 1.0     # Major radius (for s-alpha geometry)
+  alpha: 0.5  # Adiabaticity parameter (for Hasegawa-Wakatani model)
+  kappa: 1.0  # Curvature parameter (for Hasegawa-Wakatani model)
   
 numerical:
   nx: 64       # Number of grid points in x
@@ -279,8 +281,9 @@ numerical:
   Lz: 2.0      # Domain size in z (only used if nz > 1)
   dt: 0.01     # Initial time step (for fixed-step methods)
   max_time: 100.0  # Maximum simulation time
-  hyperdiffusion: 0.1  # Hyperdiffusion coefficient
-  
+  muHD: 0.1  # Hyperdiffusion coefficient
+
+model_type: '9GM' # '9GM' or 'HW'
 geometry_type: 'zpinch'  # 'salpha' or 'zpinch'
 nonlinear: true         # Include nonlinear terms
 output_dir: 'output'    # Directory for output files
