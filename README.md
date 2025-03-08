@@ -57,8 +57,8 @@ This project requires Python 3.7+ and several scientific computing packages:
 
 ```bash
 # Create and activate a virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate  # On Windows: venv\Scripts\activate, with fish use the .fish
 
 # Install dependencies
 pip install numpy scipy matplotlib pyyaml
