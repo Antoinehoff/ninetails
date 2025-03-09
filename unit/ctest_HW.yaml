@@ -20,11 +20,11 @@ numerical:
   Ly: 40.0    # Domain size in y
   Lz: 2.0      # Domain size in z (only used if nz > 1)
   dt: 0.1     # Initial time step (for fixed-step methods)
-  max_time: 500.0  # Maximum simulation time
+  max_time: 200.0  # Maximum simulation time
   muHD: 0.01  # Hyperdiffusion coefficient
 
-model_type: 'HW' # '9GM' or 'HW'
+model_type: 'MHW' # '9GM' or 'HW' or 'MHW'
 geometry_type: 'zpinch'  # 'salpha' or 'zpinch'
 nonlinear: true         # Include nonlinear terms
 output_dir: 'output'    # Directory for output files
-nframes: 200            # Number of output frames
+nframes: 100            # Number of output frames

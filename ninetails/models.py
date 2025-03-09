@@ -98,6 +98,8 @@ class HighOrderFluid:
             return self.gyro_moment_rhs(t, y)
         elif self.model_type == 'HW':
             return self.hasegawa_wakatani_rhs(t, y)
+        elif self.model_type == 'MHW':
+            return self.modified_hasegawa_wakatani_rhs(t, y)
         else:
             raise ValueError("Unknown solver type: {}".format(self.model_type))
     
@@ -250,8 +252,48 @@ class HighOrderFluid:
         phi = -zeta/self.kperp2_pos
         phi[self.kperp2 == 0] = 0
         
-        n_nz = n #- self.poisson_solver.compute_flux_surface_average(n)
-        phi_nz = phi #- self.poisson_solver.compute_flux_surface_average(phi)
+        # Density equation
+        self.dydt[0] = self.p.alpha * (phi - n) \
+                     - self.p.kappa * self.iky * phi \
+                     - self.p.muHD * self.kperp2**2 * n
+        
+        # Vorticity equation
+        self.dydt[1] = self.p.alpha * (phi - n) \
+                     - self.p.muHD * self.kperp2**2 * zeta
+        
+        # Compute the nonlinear terms using Poisson brackets if enabled
+        if self.nonlinear:
+            self.dydt[0] -= self.pb.compute(phi, n)
+            self.dydt[1] -= self.pb.compute(phi, zeta)
+        
+        # Return the derivatives, including dphidt=0
+        return self.dydt
+    
+    def modified_hasegawa_wakatani_rhs(self, t, y):
+        """
+        Compute the right-hand side of the fluid equations using the HW model.
+        
+        Parameters:
+        -----------
+        t : float
+            Current time
+        y : list of ndarrays
+            List containing [n, phi]
+            
+        Returns:
+        --------
+        list of ndarrays
+            Time derivatives of each moment (with dphidt=0)
+        """
+        # Unpack the moments
+        n = y[0]
+        zeta = y[1]
+        
+        phi = -zeta/self.kperp2_pos
+        phi[self.kperp2 == 0] = 0
+        
+        n_nz = n - self.poisson_solver.compute_flux_surface_average(n)
+        phi_nz = phi - self.poisson_solver.compute_flux_surface_average(phi)
         
         # Density equation
         self.dydt[0] = self.p.alpha * (phi_nz - n_nz) \

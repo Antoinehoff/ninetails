@@ -4,20 +4,11 @@ import os, sys
 import ninetails as ntl
 
 # Create a default configuration file if it doesn't exist
-config = ntl.SimulationConfig.from_yaml('GPUstep.yaml')
+config = ntl.SimulationConfig.from_yaml('ctest_HW.yaml')
 
 # Extract parameters from config
 phys_params = config.physical
 num_params = config.numerical
-
-# Set only one time step
-num_params.max_time = 120
-num_params.nx = 64
-num_params.nz = 64
-num_params.nz = 1
-
-config.nonlinear = True
-config.nframes = num_params.max_time//2
 
 config.info()
 
@@ -66,3 +57,4 @@ RKscheme.integrate(equations.rhs, y0, t_span, config.numerical.dt)
 postproc = ntl.PostProcessor(diagnostics)
 postproc.compute_growth_rates()
 postproc.plot_energy_evolution()
+postproc.plot_2D_snapshot(moment_name='N',time_idx=-1)
