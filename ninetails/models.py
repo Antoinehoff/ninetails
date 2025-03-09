@@ -1,7 +1,7 @@
 # equations.py
 import numpy as np
-from poisson_bracket import PoissonBracket
-from poisson_solver import PoissonSolver
+from .poisson_bracket import PoissonBracket
+from .poisson_solver import PoissonSolver
 
 class HighOrderFluid:
     def __init__(self, config, geometry):

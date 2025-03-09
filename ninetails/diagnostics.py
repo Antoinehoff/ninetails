@@ -1,7 +1,7 @@
 # diagnostics.py
 import numpy as np
-from postprocessor import PostProcessor
-from tools import get_grids
+from .postprocessor import PostProcessor
+from .tools import get_grids
 
 class Diagnostics:
     def __init__(self, config = None):
@@ -10,6 +10,7 @@ class Diagnostics:
         
         self.grid = get_grids(config.numerical)
         
+        self.nframes = config.nframes
         self.frames = {}
         self.frames['t'] = []
         self.frames['fields'] = []
@@ -25,7 +26,44 @@ class Diagnostics:
         self.enstrophy_history['t'] = []
         self.enstrophy_history['enstrophy'] = []
         
-        self.nframes = 0
+        # compute the time where to save the data
+        self.t_frame_diag = np.linspace(0, config.numerical.max_time, config.nframes)
+        self.dt_frame_diag = self.t_frame_diag[1] - self.t_frame_diag[0]
+        self.t_int_diag = np.linspace(0, config.numerical.max_time, config.nframes*10)
+        self.dt_int_diag = self.t_int_diag[1] - self.t_int_diag[0]
+
+    def update(self, t, y):
+        """Update diagnostics at time t"""
+        
+        if t >= self.t_frame_diag[0]:
+            self.save_frame(t, y)
+            self.t_frame_diag = self.t_frame_diag[1:]
+        
+        if t >= self.t_int_diag[0]:
+            E_kin, E_therm, E_pot = self.compute_energy(y)
+            enstrophy = self.compute_enstrophy(y[-1], self.grid)
+
+            self.energy_history['t'].append(t)
+            self.energy_history['kinetic'].append(E_kin)
+            self.energy_history['thermal'].append(E_therm)
+            self.energy_history['potential'].append(E_pot)
+            self.energy_history['total'].append(E_kin + E_therm + E_pot)
+
+            self.enstrophy_history['t'].append(t)
+            self.enstrophy_history['enstrophy'].append(enstrophy)
+            
+            print(f"t = {t:.2e}, E_tot = {E_kin + E_therm + E_pot:.2e}")
+            
+            self.t_int_diag = self.t_int_diag[1:]
+            
+    def finalize(self):
+        # convert lists to numpy arrays
+        for key in self.frames.keys():
+            self.frames[key] = np.array(self.frames[key])
+        for key in self.energy_history.keys():
+            self.energy_history[key] = np.array(self.energy_history[key])
+        for key in self.enstrophy_history.keys():
+            self.enstrophy_history[key] = np.array(self.enstrophy_history[key])
         
     def save_frame(self, t, y):
         """Save a frame of the moments and potential"""
@@ -40,13 +78,11 @@ class Diagnostics:
         
         # Kinetic energy
         E_kin = 0.5 * np.mean(np.abs(u_par)**2)
-        
         # Thermal energy
         E_therm = 0.5 * np.mean(np.abs(T_par)**2 + np.abs(T_perp)**2)
-        
         # Potential energy
         E_pot = 0.5 * np.mean(np.abs(phi)**2)
-        
+
         return E_kin, E_therm, E_pot
         
     def compute_enstrophy(self, phi, grid):
@@ -80,26 +116,3 @@ class Diagnostics:
         enstrophy = 0.5 * np.mean(np.abs(vort_hat)**2)
         
         return enstrophy
-        
-    def update(self, t, y):
-        """Update diagnostics at time t"""
-        
-        self.save_frame(t, y)
-        
-        E_kin, E_therm, E_pot = self.compute_energy(y)
-        enstrophy = self.compute_enstrophy(y[-1], self.grid)
-        
-        self.energy_history['t'].append(t)
-        self.energy_history['kinetic'].append(E_kin)
-        self.energy_history['thermal'].append(E_therm)
-        self.energy_history['potential'].append(E_pot)
-        self.energy_history['total'].append(E_kin + E_therm + E_pot)
-        
-        self.enstrophy_history['t'].append(t)
-        self.enstrophy_history['enstrophy'].append(enstrophy)
-        
-    def plot_on_the_fly(self):
-        """Plot diagnostics on the fly"""
-        process_on_fly = PostProcessor(self)
-        filename = 'N_now.png'
-        process_on_fly.plot_2D_snapshot('N',time_idx=self.nframes-1,filename=filename)

@@ -1,7 +1,6 @@
 import h5py
-from config import SimulationConfig
-from diagnostics import Diagnostics
-import numpy as np
+from .config import SimulationConfig
+from .diagnostics import Diagnostics
 
 def save_solution_hdf5(filename, diagnostics, config):
     """

@@ -1,7 +1,7 @@
 import sys
 import numpy as np
-from file_utils import load_solution_hdf5
-from postprocessor import PostProcessor
+from .file_utils import load_solution_hdf5
+from .postprocessor import PostProcessor
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 

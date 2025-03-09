@@ -2,8 +2,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from poisson_solver import PoissonSolver
-from tools import get_grids
+from .poisson_solver import PoissonSolver
+from .tools import get_grids
 
 class PostProcessor:
     def __init__(self, diagnostics):
@@ -21,9 +21,10 @@ class PostProcessor:
         x, y, z : ndarray
             Coordinate arrays
         """
-        self.diagnostics = diagnostics
         self.t = diagnostics.frames['t']
         self.fields = diagnostics.frames['fields']
+        self.energy_history = diagnostics.energy_history
+        self.enstrophy_history = diagnostics.enstrophy_history
 
         self.mn2idx = {
             'dens': 0,
@@ -53,21 +54,6 @@ class PostProcessor:
         os.makedirs(self.output_dir, exist_ok=True)
     
     def get_moment_data(self, moment_name, time_idx=None):
-        """
-        Get moment data for a specific time index.
-        
-        Parameters:
-        -----------
-        moment_name : str
-            Name of the moment to retrieve
-        time_idx : int, optional
-            Time index to retrieve (if None, returns all times)
-            
-        Returns:
-        --------
-        ndarray
-            Moment data in Fourier space
-        """
         if moment_name not in self.mn2idx.keys():
             raise ValueError(f"Unknown moment: {moment_name}")
         
@@ -77,19 +63,6 @@ class PostProcessor:
             return self.fields[:,self.mn2idx[moment_name],:,:,:]
     
     def to_real_space(self, data_hat):
-        """
-        Transform data from Fourier space to real space.
-        
-        Parameters:
-        -----------
-        data_hat : ndarray
-            Data in Fourier space (kx, ky, z, [t])
-            
-        Returns:
-        --------
-        ndarray
-            Data in real space (x, y, z, [t])
-        """
         # Check if we have a time dimension
         has_time = len(data_hat.shape) > 3
         
@@ -246,7 +219,7 @@ class PostProcessor:
         fig.savefig(f'{self.output_dir}/{moment_name}_mode_kx{kx_idx}_ky{ky_idx}_z{z_idx}.png', dpi=150)
         plt.close(fig)
     
-    def plot_energy_evolution(self, energy_history):
+    def plot_energy_evolution(self):
         """
         Plot the time evolution of energy components.
         
@@ -255,15 +228,12 @@ class PostProcessor:
         energy_history : list of dict
             List of dictionaries containing energy components at each time
         """
-        if not energy_history:
-            return
-        
         # Extract time and energy components
-        times = energy_history['t']
-        kinetic = energy_history['kinetic']
-        thermal = energy_history['thermal']
-        potential = energy_history['potential']
-        total = energy_history['total']
+        times = self.energy_history['t']
+        kinetic = self.energy_history['kinetic']
+        thermal = self.energy_history['thermal']
+        potential = self.energy_history['potential']
+        total = self.energy_history['total']
         
         # Create the plot
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -283,7 +253,7 @@ class PostProcessor:
         fig.savefig(f'{self.output_dir}/energy_evolution.png', dpi=150)
         plt.close(fig)
     
-    def plot_enstrophy_evolution(self, enstrophy_history):
+    def plot_enstrophy_evolution(self):
         """
         Plot the time evolution of enstrophy.
         
@@ -292,12 +262,10 @@ class PostProcessor:
         enstrophy_history : list of dict
             List of dictionaries containing enstrophy at each time
         """
-        if not enstrophy_history:
-            return
         
         # Extract time and enstrophy
-        times = enstrophy_history['t']
-        enstrophy = enstrophy_history['enstrophy']
+        times = self.enstrophy_history['t']
+        enstrophy = self.enstrophy_history['enstrophy']
         
         # Create the plot
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -655,180 +623,4 @@ class PostProcessor:
         # Save the figure
         plt.tight_layout()
         fig.savefig(f'{self.output_dir}/{moment_name}_mode_growth_examples.png', dpi=150)
-        plt.close(fig)
-
-    def compute_theoretical_growth_rates(self, geometry_type='zpinch', param_scan=False):
-        """
-        Compute simplified theoretical growth rates based on the underlying physics model.
-        This is a simple estimate that can be compared with simulation results.
-        
-        Parameters:
-        -----------
-        geometry_type : str, optional
-            Geometry type ('zpinch' or 'salpha')
-        param_scan : bool, optional
-            If True, computes growth rates for a range of parameters
-            
-        Returns:
-        --------
-        ndarray
-            Theoretical growth rate spectrum
-        """
-        # Get the wavenumbers
-        kx_values = np.fft.fftfreq(self.nx, d=self.x[1]-self.x[0]) * 2 * np.pi
-        ky_values = np.fft.rfftfreq(self.ny, d=self.y[1]-self.y[0]) * 2 * np.pi
-        
-        # Create 2D grids of wavenumbers
-        kx_grid, ky_grid = np.meshgrid(kx_values, ky_values, indexing='ij')
-        
-        # Compute k_perp^2 (assuming simple geometry for illustration)
-        k_perp2 = kx_grid**2 + ky_grid**2
-        
-        # Estimate growth rates based on simplified dispersion relation
-        # This is just an example - the actual theory will depend on your specific physics model
-        growth_rates = np.zeros_like(k_perp2)
-        
-        # Get parameters from solution (assuming they're stored somewhere)
-        # This is a placeholder - you'll need to adapt to your specific parameter storage
-        tau = 0.01  # Example value - replace with actual parameter
-        RN = 1.0    # Density gradient scale length
-        RT = 100.0  # Temperature gradient scale length
-        
-        if geometry_type == 'zpinch':
-            # For Z-pinch, simplified ITG-like instability growth rate
-            # Estimate growth rate as a function of ky and k_perp
-            # This is just an example formula
-            growth_rates = ky_grid * (RN/RT + 1) / (1 + k_perp2 * tau) * np.exp(-k_perp2 * tau)
-        else:  # s-alpha
-            # Different formula for s-alpha geometry
-            growth_rates = ky_grid * np.sqrt(tau * RN/RT) / (1 + k_perp2) * np.exp(-k_perp2 * tau)
-        
-        # Set growth rate to zero for very small k values (remove artifacts)
-        growth_rates[k_perp2 < 1e-10] = 0
-        
-        # Create the theoretical growth rate plot
-        fig, ax = plt.subplots(figsize=(10, 8))
-        
-        # Create extent for imshow
-        extent = [ky_values[0], ky_values[-1], kx_values[0], kx_values[-1]]
-        
-        # Only show positive growth rates
-        growth_rates_plot = growth_rates.copy()
-        growth_rates_plot[growth_rates_plot < 0] = 0
-        
-        # Plot the theoretical growth rate spectrum
-        im = ax.imshow(growth_rates_plot, origin='lower', extent=extent, 
-                    aspect='auto', cmap='plasma')
-        plt.colorbar(im, ax=ax, label='Theoretical Growth Rate (γ)')
-        
-        ax.set_xlabel('ky')
-        ax.set_ylabel('kx')
-        ax.set_title(f'Simplified Theoretical Growth Rate Spectrum')
-        
-        # Save the figure
-        plt.tight_layout()
-        fig.savefig(f'{self.output_dir}/theoretical_growth_rate_spectrum.png', dpi=150)
-        plt.close(fig)
-        
-        # If requested, perform a parameter scan
-        if param_scan:
-            self._plot_growth_rate_parameter_scan(kx_values, ky_values, geometry_type)
-        
-        return growth_rates
-
-    def _plot_growth_rate_parameter_scan(self, kx_values, ky_values, geometry_type):
-        """
-        Plot growth rates for a range of physical parameters.
-        
-        Parameters:
-        -----------
-        kx_values : ndarray
-            Array of kx values
-        ky_values : ndarray
-            Array of ky values
-        geometry_type : str
-            Geometry type ('zpinch' or 'salpha')
-        """
-        # Define ranges for parameter scan
-        RN_values = [0.5, 1.0, 2.0, 5.0]
-        RT_values = [10.0, 50.0, 100.0, 200.0]
-        tau_values = [0.005, 0.01, 0.02, 0.05]
-        
-        # Select some representative modes for analysis
-        ky_idx = len(ky_values) // 4  # Take a moderate ky value
-        ky = ky_values[ky_idx]
-        
-        # Create kx, ky meshgrid
-        kx_grid, ky_grid = np.meshgrid(kx_values, ky_values, indexing='ij')
-        k_perp2 = kx_grid**2 + ky_grid**2
-        
-        # Parameter scan plots
-        fig, axs = plt.subplots(3, 1, figsize=(10, 15))
-        
-        # 1. Scan density gradient
-        growth_rates_RN = []
-        for RN in RN_values:
-            if geometry_type == 'zpinch':
-                # Simplified formula for Z-pinch
-                growth_rate = ky_grid * (RN/100.0 + 1) / (1 + k_perp2 * 0.01) * np.exp(-k_perp2 * 0.01)
-            else:
-                # Simplified formula for s-alpha
-                growth_rate = ky_grid * np.sqrt(0.01 * RN/100.0) / (1 + k_perp2) * np.exp(-k_perp2 * 0.01)
-                
-            # Extract growth rate for our selected ky
-            growth_rates_RN.append(growth_rate[:, ky_idx])
-        
-        # Plot RN scan
-        for i, RN in enumerate(RN_values):
-            axs[0].plot(kx_values, growth_rates_RN[i], label=f'RN = {RN}')
-        
-        axs[0].set_xlabel('kx')
-        axs[0].set_ylabel('Growth Rate (γ)')
-        axs[0].set_title(f'Growth Rate vs. Density Gradient (at ky = {ky:.2f})')
-        axs[0].legend()
-        axs[0].grid(True)
-        
-        # 2. Scan temperature gradient
-        growth_rates_RT = []
-        for RT in RT_values:
-            if geometry_type == 'zpinch':
-                growth_rate = ky_grid * (1.0/RT + 1) / (1 + k_perp2 * 0.01) * np.exp(-k_perp2 * 0.01)
-            else:
-                growth_rate = ky_grid * np.sqrt(0.01 * 1.0/RT) / (1 + k_perp2) * np.exp(-k_perp2 * 0.01)
-                
-            growth_rates_RT.append(growth_rate[:, ky_idx])
-        
-        # Plot RT scan
-        for i, RT in enumerate(RT_values):
-            axs[1].plot(kx_values, growth_rates_RT[i], label=f'RT = {RT}')
-        
-        axs[1].set_xlabel('kx')
-        axs[1].set_ylabel('Growth Rate (γ)')
-        axs[1].set_title(f'Growth Rate vs. Temperature Gradient (at ky = {ky:.2f})')
-        axs[1].legend()
-        axs[1].grid(True)
-        
-        # 3. Scan temperature ratio
-        growth_rates_tau = []
-        for tau in tau_values:
-            if geometry_type == 'zpinch':
-                growth_rate = ky_grid * (1.0/100.0 + 1) / (1 + k_perp2 * tau) * np.exp(-k_perp2 * tau)
-            else:
-                growth_rate = ky_grid * np.sqrt(tau * 1.0/100.0) / (1 + k_perp2) * np.exp(-k_perp2 * tau)
-                
-            growth_rates_tau.append(growth_rate[:, ky_idx])
-        
-        # Plot tau scan
-        for i, tau in enumerate(tau_values):
-            axs[2].plot(kx_values, growth_rates_tau[i], label=f'tau = {tau}')
-        
-        axs[2].set_xlabel('kx')
-        axs[2].set_ylabel('Growth Rate (γ)')
-        axs[2].set_title(f'Growth Rate vs. Temperature Ratio (at ky = {ky:.2f})')
-        axs[2].legend()
-        axs[2].grid(True)
-        
-        # Save the figure
-        plt.tight_layout()
-        fig.savefig(f'{self.output_dir}/growth_rate_parameter_scan.png', dpi=150)
         plt.close(fig)

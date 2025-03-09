@@ -22,6 +22,11 @@ class PhysicalParams:
     alpha: float = 0.5  # adiabaticity parameter
     kappa: float = 1.0  # curvature parameter
 
+    def info(self):
+        print("Physical Parameters:")
+        for key, value in asdict(self).items():
+            print(f"  {key}: {value}")
+
 @dataclass
 class NumericalParams:
     # Grid parameters
@@ -41,6 +46,11 @@ class NumericalParams:
     atol: float = 1e-8  # Absolute tolerance for adaptive solver
     rtol: float = 1e-6  # Relative tolerance for adaptive solver
     muHD: float = 0.0  # Hyperdiffusion coefficient
+
+    def info(self):
+        print("Numerical Parameters:")
+        for key, value in asdict(self).items():
+            print(f"  {key}: {value}")
 
 @dataclass
 class SimulationConfig:
@@ -189,8 +199,23 @@ class SimulationConfig:
             nframes=100,
             input_file=filename,
             output_dir='output',
-            model_type= '9GM',
+            model_type= 'HW',
         )
         
         # Save to file
         config.save(filename)
+
+    def info(self):
+        print("Simulation Configuration:")
+        print(f"  Geometry Type: {self.geometry_type}")
+        print(f"  Nonlinear: {self.nonlinear}")
+        print(f"  Model Type: {self.model_type}")
+        print(f"  Input File: {self.input_file}")
+        print(f"  Output Directory: {self.output_dir}")
+        print(f"  Number of Frames: {self.nframes}")
+        print(f"  Restart: {self.restart}")
+        print(f"  Restart File: {self.restart_file}")
+        print(f"  Save Restart: {self.save_restart}")
+        print(f"  Restart Interval: {self.restart_interval}")
+        self.physical.info()
+        self.numerical.info()

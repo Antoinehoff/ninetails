@@ -1,5 +1,6 @@
 # poisson_bracket.py
 import numpy as np
+from .fastfouriertransform import FastFourierTransform
 
 class PoissonBracket:
     def __init__(self, kx, ky, AA_method='filtering'):
@@ -15,13 +16,15 @@ class PoissonBracket:
         method : str
             Method to use for anti-aliasing. Options are 'filtering' and 'padding'
         """
+        self.FFT = FastFourierTransform()
+        
         self.AA_method = AA_method
         self.kx = kx
         self.ky = ky
         self.nkx, self.nky = kx.shape
         self.nx = self.nkx
         self.ny = 2 * self.nky - 1
-        self.mult_factor = 2*np.pi/kx[1,0] * 2*np.pi/ky[0,1]
+        self.mult_factor = 1#2*np.pi/kx[1,0] * 2*np.pi/ky[0,1]
         
         # Calculate dealiasing pad sizes (using 3/2 rule)
         self.nx_pad = int(self.nx * 3 / 2)
@@ -126,7 +129,7 @@ class PoissonBracket:
         # Compute Fourier transforms
         s = (self.nx, self.ny)
         axes = (-2,-1)
-        norm = 'backward'
+        norm = 'ortho'
         f_hat = np.fft.irfft2(f, s=s, axes=axes, norm=norm)
         g_hat = np.fft.irfft2(g, s=s, axes=axes, norm=norm)
         
@@ -134,7 +137,7 @@ class PoissonBracket:
         fg_hat = f_hat * g_hat
         
         # Transform back to real space
-        norm = 'forward'
+        norm = 'ortho'
         fg = np.fft.rfft2(fg_hat, s=s, axes=axes, norm=norm)
         
         return fg * self.mult_factor

@@ -1,14 +1,13 @@
 # main.py
 import numpy as np
 import os, sys
-from scipy.integrate import solve_ivp
-from models import HighOrderFluid
-from geometry import create_geometry
-from config import SimulationConfig
-from diagnostics import Diagnostics
-from file_utils import save_solution_hdf5
-from tools import get_grids
-import integrators
+from .models import HighOrderFluid
+from .geometry import create_geometry
+from .config import SimulationConfig
+from .diagnostics import Diagnostics
+from .file_utils import save_solution_hdf5
+from .tools import get_grids
+from .integrator import Integrator
 
 def run(config_file):
     if not os.path.exists(config_file):
@@ -164,19 +163,8 @@ def run(config_file):
     dt_out = num_params.max_time / config.nframes  # Adjust as needed
 
     # Run the solver
-    print("Starting simulation...")
-    integrators.integrate(
-        method='RK4',
-        rhs_func=rhs_wrapper,
-        y0=y0,
-        t_eval=t_span,
-        dt = config.numerical.dt,
-        atol=1e-2,  # Adjust as needed
-        rtol=1e-2   # Adjust as needed
-    )
-    
-    # Save the solution
-    save_solution_hdf5(config.output_dir + "/solution.h5", diagnostics, config)
+    integrator = Integrator(method='RK4', nprint=100)
+    integrator.integrate(rhs_wrapper, y0, t_span, dt_out)
     
 if __name__ == "__main__":
     # config file is the first command line argument
