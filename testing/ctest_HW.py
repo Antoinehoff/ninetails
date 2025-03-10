@@ -10,6 +10,9 @@ config = ntl.SimulationConfig.from_yaml('ctest_HW.yaml')
 phys_params = config.physical
 num_params = config.numerical
 
+num_params.max_time = 300
+config.nframes = 300
+
 config.info()
 
 # Set up the grid
@@ -57,4 +60,7 @@ RKscheme.integrate(equations.rhs, y0, t_span, config.numerical.dt)
 postproc = ntl.PostProcessor(diagnostics)
 postproc.compute_growth_rates()
 postproc.plot_energy_evolution()
-postproc.plot_2D_snapshot(moment_name='N',time_idx=-1)
+postproc.plot_2D_snapshot(moment_name='phi',time_idx=-1)
+postproc.create_gif(moment_name='N', moviename=f'{config.output_dir}/ctest_HW_N.gif')
+postproc.create_gif(moment_name='zeta', moviename=f'{config.output_dir}/ctest_HW_zeta.gif')
+postproc.create_gif(moment_name='phi', moviename=f'{config.output_dir}/ctest_HW_phi.gif')

@@ -53,46 +53,9 @@ class HighOrderFluid:
         self.CparB = geometry.CparB  # Parallel magnetic curvature
         self.iky = 1j * ky_grid[:, :, np.newaxis]
     
-    def update_phi(self, y):
-        """
-        Update phi in the state vector using the Poisson equation
-        
-        Parameters:
-        -----------
-        y : list of ndarrays
-            State vector containing moments and phi
-            
-        Returns:
-        --------
-        list of ndarrays
-            Updated state vector with new phi
-        """
-        # Unpack the moments
-        # N, u_par, T_par, T_perp, q_par, q_perp, P_parpar, P_perppar, P_perpperp, phi = y
-        
-        # Solve for phi
-        new_phi = self.poisson_solver.solve(y[0], y[3], y[-1])
-        
-        # Replace phi in state vector
-        y[9] = new_phi
-        
-        return y
-    
     def rhs(self, t, y):
         """
         Compute the right-hand side of the fluid equations.
-        
-        Parameters:
-        -----------
-        t : float
-            Current time
-        y : list of ndarrays
-            List containing [N, u_par, T_par, T_perp, q_par, q_perp, P_parpar, P_perppar, P_perpperp, phi]
-            
-        Returns:
-        --------
-        list of ndarrays
-            Time derivatives of each moment (with dphidt=0)
         """
         if self.model_type == '9GM':
             return self.gyro_moment_rhs(t, y)
@@ -102,25 +65,66 @@ class HighOrderFluid:
             return self.modified_hasegawa_wakatani_rhs(t, y)
         else:
             raise ValueError("Unknown solver type: {}".format(self.model_type))
+
+    def hasegawa_wakatani_rhs(self, t, y):
+        """
+        Compute the right-hand of the Hasegawa-Wakatani equations.
+        """
+        y[-1] = -y[1]/self.kperp2_pos
+        y[-1][self.kperp2 == 0] = 0
+        
+        # Density equation
+        self.dydt[0] = self.p.alpha * (y[-1] - y[0]) \
+                     - self.p.kappa * self.iky * y[-1] \
+                     - self.p.muHD * self.kperp2**2 * y[0]
+        # Vorticity equation
+        self.dydt[1] = self.p.alpha * (y[-1] - y[0]) \
+                     - self.p.muHD * self.kperp2**2 * y[1]
+        # Compute the nonlinear terms using Poisson brackets if enabled
+        if self.nonlinear:
+            self.dydt[0] -= self.pb.compute(y[-1], y[0])
+            self.dydt[1] -= self.pb.compute(y[-1], y[1])
+        
+        # Return the derivatives, including dphidt=0
+        return self.dydt
+    
+    def modified_hasegawa_wakatani_rhs(self, t, y):
+        """
+        Compute the right-hand side of the modified Hasegawa-Wakatani equations.
+        """
+        # Unpack the moments
+        n = y[0]
+        zeta = y[1]
+        
+        y[-1] = -y[1]/self.kperp2_pos
+        y[-1][self.kperp2 == 0] = 0
+        
+        n_nz = y[0] - self.poisson_solver.flux_surf_avg(y[0])
+        phi_nz = y[-1] - self.poisson_solver.flux_surf_avg(y[-1])
+        
+        # Density equation
+        self.dydt[0] = self.p.alpha * (phi_nz - n_nz) \
+                     - self.p.kappa * self.iky * y[-1] \
+                     - self.p.muHD * self.kperp2**2 * y[0]
+        
+        # Vorticity equation
+        self.dydt[1] = self.p.alpha * (phi_nz - n_nz) \
+                     - self.p.muHD * self.kperp2**2 * y[1]
+        
+        # Compute the nonlinear terms using Poisson brackets if enabled
+        if self.nonlinear:
+            self.dydt[0] -= self.pb.compute(y[-1], y[0])
+            self.dydt[1] -= self.pb.compute(y[-1], y[1])
+        
+        # Return the derivatives, including dphidt=0
+        return self.dydt
     
     def gyro_moment_rhs(self, t, y):
         """
         Compute the right-hand side of the fluid equations using the 9GM framework.
-        
-        Parameters:
-        -----------
-        t : float
-            Current time
-        y : list of ndarrays
-            List containing [N, u_par, T_par, T_perp, q_par, q_perp, P_parpar, P_perppar, P_perpperp, phi]
-            
-        Returns:
-        --------
-        list of ndarrays
-            Time derivatives of each moment (with dphidt=0)
         """
         # First update phi based on the Poisson equation
-        y = self.update_phi(y)
+        y = self.poisson_solver.solve(y)
         
         # Unpack the moments
         N, u_par, T_par, T_perp, q_par, q_perp, P_parpar, P_perppar, P_perpperp, phi = y
@@ -229,85 +233,3 @@ class HighOrderFluid:
         return np.array([dN_dt, du_par_dt, dT_par_dt, dT_perp_dt, dq_par_dt, dq_perp_dt, 
                 dP_parpar_dt, dP_perppar_dt, dP_perpperp_dt, np.zeros_like(phi)])
     
-    def hasegawa_wakatani_rhs(self, t, y):
-        """
-        Compute the right-hand side of the fluid equations using the HW model.
-        
-        Parameters:
-        -----------
-        t : float
-            Current time
-        y : list of ndarrays
-            List containing [n, phi]
-            
-        Returns:
-        --------
-        list of ndarrays
-            Time derivatives of each moment (with dphidt=0)
-        """
-        # Unpack the moments
-        n = y[0]
-        zeta = y[1]
-        
-        phi = -zeta/self.kperp2_pos
-        phi[self.kperp2 == 0] = 0
-        
-        # Density equation
-        self.dydt[0] = self.p.alpha * (phi - n) \
-                     - self.p.kappa * self.iky * phi \
-                     - self.p.muHD * self.kperp2**2 * n
-        
-        # Vorticity equation
-        self.dydt[1] = self.p.alpha * (phi - n) \
-                     - self.p.muHD * self.kperp2**2 * zeta
-        
-        # Compute the nonlinear terms using Poisson brackets if enabled
-        if self.nonlinear:
-            self.dydt[0] -= self.pb.compute(phi, n)
-            self.dydt[1] -= self.pb.compute(phi, zeta)
-        
-        # Return the derivatives, including dphidt=0
-        return self.dydt
-    
-    def modified_hasegawa_wakatani_rhs(self, t, y):
-        """
-        Compute the right-hand side of the fluid equations using the HW model.
-        
-        Parameters:
-        -----------
-        t : float
-            Current time
-        y : list of ndarrays
-            List containing [n, phi]
-            
-        Returns:
-        --------
-        list of ndarrays
-            Time derivatives of each moment (with dphidt=0)
-        """
-        # Unpack the moments
-        n = y[0]
-        zeta = y[1]
-        
-        phi = -zeta/self.kperp2_pos
-        phi[self.kperp2 == 0] = 0
-        
-        n_nz = n - self.poisson_solver.compute_flux_surface_average(n)
-        phi_nz = phi - self.poisson_solver.compute_flux_surface_average(phi)
-        
-        # Density equation
-        self.dydt[0] = self.p.alpha * (phi_nz - n_nz) \
-                     - self.p.kappa * self.iky * phi \
-                     - self.p.muHD * self.kperp2**2 * n
-        
-        # Vorticity equation
-        self.dydt[1] = self.p.alpha * (phi_nz - n_nz) \
-                     - self.p.muHD * self.kperp2**2 * zeta
-        
-        # Compute the nonlinear terms using Poisson brackets if enabled
-        if self.nonlinear:
-            self.dydt[0] -= self.pb.compute(phi, n)
-            self.dydt[1] -= self.pb.compute(phi, zeta)
-        
-        # Return the derivatives, including dphidt=0
-        return self.dydt

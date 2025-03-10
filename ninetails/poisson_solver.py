@@ -25,7 +25,7 @@ class PoissonSolver:
         self.l_perp = geometry.l_perp
         self.jacobian = geometry.jacobian
         
-    def compute_flux_surface_average(self, phi):
+    def flux_surf_avg(self, phi):
         """
         Compute the flux surface average of phi according to the equation:
         <phi>_yz = (1/∫dz J_xyz) ∫dz J_xyz * phi(k_x, k_y=0, z, t)
@@ -62,36 +62,17 @@ class PoissonSolver:
         
         return phi_avg_full
     
-    def solve(self, N, Tperp, phi):
+    def solve(self, y):
         """
         Solve the quasineutrality equation:
         (1 - 2[l_perp - tau*l_perp^2])phi - <phi>_yz = n + tau*l_perp*(T_perp - n)
-        
-        Parameters:
-        -----------
-        N : ndarray
-            Density fluctuation in Fourier space
-        T_perp : ndarray
-            Perpendicular temperature fluctuation in Fourier space
-        phi : ndarray
-            Electrostatic potential in Fourier space
-            
-        Returns:
-        --------
-        ndarray
-            Electrostatic potential phi in Fourier space
         """
         # Compute the coefficient of phi on the LHS
         tau = self.params.tau
         coeff = 1 - 2 * (self.l_perp - tau * self.l_perp**2)
-        
-        # Compute the RHS: n + tau*l_perp*(T_perp - n)
-        rhs = N + tau * self.l_perp * (Tperp - N)
-        
         # Direct method to solve for phi
-        phi_fs_avg = self.compute_flux_surface_average(phi)
-        phi = (rhs + phi_fs_avg) / coeff
-        
+        y[-1] = (y[0] + tau * self.l_perp * (y[3] - y[0]) + self.flux_surf_avg(y[-1]))
+        y[-1] /= coeff
         # Iterative method
         if False:
             # Initial guess for phi (ignoring flux surface average for now)
@@ -104,7 +85,7 @@ class PoissonSolver:
             
             for i in range(max_iter):
                 # Compute the flux surface average of the current phi
-                phi_avg = self.compute_flux_surface_average(phi)
+                phi_avg = self.flux_surf_avg(phi)
                 
                 # Update phi using the flux surface average
                 phi_new = (rhs + phi_avg) / coeff
@@ -116,4 +97,4 @@ class PoissonSolver:
                     
                 phi = phi_new
         
-        return phi
+        return y

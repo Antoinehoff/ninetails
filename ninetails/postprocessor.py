@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import os
 from .poisson_solver import PoissonSolver
 from .tools import get_grids
+import imageio
 
 class PostProcessor:
     def __init__(self, diagnostics):
@@ -48,6 +49,8 @@ class PostProcessor:
         self.nx = len(self.x)
         self.ny = len(self.y)
         self.nz = len(self.z)
+        
+        self.time_indices = np.arange(len(self.t))
         
         # Create output directory
         self.output_dir = 'output/figures'
@@ -136,13 +139,51 @@ class PostProcessor:
             phi_avg = np.zeros_like(phi_hat)
             
             for it in range(nt):
-                phi_avg[..., it] = solver.compute_flux_surface_average(phi_hat[..., it])
+                phi_avg[..., it] = solver.flux_surf_avg(phi_hat[..., it])
         else:
-            phi_avg = solver.compute_flux_surface_average(phi_hat)
+            phi_avg = solver.flux_surf_avg(phi_hat)
         
         return phi_avg
+    
+
+    def create_gif(self, moment_name, time_indices = [], z_idx=0, 
+                   clim = [], moviename=[], cbar=False):
+        print('Creating GIF movie...')
+        # Manage default parameters.
+        time_indices = time_indices if time_indices else self.time_indices   
+        if clim == 'auto':            
+            maxmom = np.max(np.abs(self.get_moment_data(moment_name)))
+            clim = [-maxmom, maxmom]        
+            
+        # Create a directory to store the frames
+        os.makedirs(f'tmp_gif_frames', exist_ok=True)
+         
+        # Generate the frames
+        frame_filenames = []
+        for time_idx in time_indices:
+            frame_filename = f'tmp_gif_frames/gif_frame_{time_idx}.png'
+            self.plot_2D_snapshot(moment_name, time_idx, z_idx, cbar=cbar,
+                                  clim=clim, filename=frame_filename)
+            frame_filenames.append(frame_filename)
+
+        # Create the GIF
+        moviename = moviename if moviename else f'{self.output_dir}/{moment_name}_movie.gif'
+        print('Compiling ', moviename, '...')
+        with imageio.get_writer(moviename, mode='I', duration=0.5) as writer:
+            for frame_filename in frame_filenames:
+                image = imageio.imread(frame_filename)
+                writer.append_data(image)
+                
+        # Remove the frame files
+        for frame_filename in frame_filenames:
+            os.remove(frame_filename)
+        # Remove the temporary directory
+        os.rmdir('tmp_gif_frames')
+
+        print(f'GIF movie created: {moviename}')
         
-    def plot_2D_snapshot(self, moment_name, time_idx=0, z_idx=0, filename=''):
+    def plot_2D_snapshot(self, moment_name, time_idx=0, z_idx=0, 
+                         filename='', clim=[], cbar=True):
         """
         Plot a 2D snapshot of a moment at a specific time and z.
         
@@ -169,15 +210,15 @@ class PostProcessor:
         im = ax.imshow(z_plane.T, origin='lower', extent=[0, self.x[-1], 0, self.y[-1]], 
                       aspect='auto', cmap='RdBu_r', interpolation='quadric')
         # im = ax.pcolormesh(self.x, self.y, z_plane.T, cmap='RdBu_r')
-        plt.colorbar(im, ax=ax, label=f'{moment_name}')
+        if cbar: plt.colorbar(im, ax=ax, label=f'{moment_name}')
         
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         ax.set_title(f'{moment_name} at t={self.t[time_idx]:.2f}, z={self.z[z_idx]:.2f}')
-        
+        if clim: im.set_clim(clim)
         # Save the figure
         plt.tight_layout()
-        filename = f'{self.output_dir}/{filename}' if filename else f'{self.output_dir}/{moment_name}_t{time_idx}_z{z_idx}.png'
+        filename = filename if filename else f'{self.output_dir}/{moment_name}_t{time_idx}_z{z_idx}.png'
         fig.savefig(filename, dpi=150)
         plt.close(fig)
     
