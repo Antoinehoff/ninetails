@@ -155,7 +155,7 @@ def run(config_file):
                 # diagnostics.plot_on_the_fly()
                 # remove all t_eval times that are less than or equal to current time
                 t_diag.pop(0)
-                print(f"t = {t:.2e}, Etot = {diagnostics.energy_history['total'][-1]:.4e}")
+                print(f"t = {t:.2e}, Etot = {diagnostics.integrated['total'][-1]:.4e}")
     
         return dydt
 

@@ -1,6 +1,7 @@
 import h5py
-from .config import SimulationConfig
-from .diagnostics import Diagnostics
+from config import SimulationConfig
+from diagnostics import Diagnostics
+import numpy as np
 
 def save_solution_hdf5(filename, diagnostics, config):
     """
@@ -100,3 +101,55 @@ def load_solution_hdf5(filename):
     
     print(f"Solution, diagnostics, and configuration loaded from {filename}")
     return diagnostics, config
+
+def save_frame_hdf5(filename, iframe, t, y):
+    """
+    Save a single frame of the simulation to an HDF5 file.
+    
+    Parameters:
+    -----------
+    filename : str
+        Path to the HDF5 file where the frame will be saved
+    t : float
+        Current time
+    y : ndarray
+        State vector at the current time
+    """
+    with h5py.File(filename, 'w') as f:
+        f.create_dataset('iframe', data=iframe)
+        f.create_dataset('t', data=t)
+        f.create_dataset('fields', data=y)
+        
+    print(f"Frame saved to {filename}")
+
+def save_integrated_diagnostics_hdf5(filename, diagnostics):
+    """
+    Save the integrated diagnostics to an HDF5 file.
+    
+    Parameters:
+    -----------
+    filename : str
+        Path to the HDF5 file where the diagnostics will be saved
+    diagnostics : Diagnostics
+        Diagnostics object containing energy and enstrophy history
+    """
+    with h5py.File(filename, 'w') as f:
+        # Save energy history
+        t = diagnostics.energy_history['t']
+        Etot = diagnostics.energy_history['total']
+        Ekin = diagnostics.energy_history['kinetic']
+        Etherm = diagnostics.energy_history['thermal']
+        Epot = diagnostics.energy_history['potential']
+        f.create_dataset('energy_history/t', data=t)
+        f.create_dataset('energy_history/total', data=Etot)
+        f.create_dataset('energy_history/kinetic', data=Ekin)
+        f.create_dataset('energy_history/thermal', data=Etherm)
+        f.create_dataset('energy_history/potential', data=Epot)
+        
+        # save enstrophy history
+        t = diagnostics.enstrophy_history['t']
+        enstrophy = diagnostics.enstrophy_history['enstrophy']
+        f.create_dataset('enstrophy_history/t', data=t)
+        f.create_dataset('enstrophy_history/enstrophy', data=enstrophy)
+        
+    print(f"Diagnostics saved to {filename}")

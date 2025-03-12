@@ -1,6 +1,18 @@
 # geometry.py
 import numpy as np
 
+from .tools import get_grids
+
+def create_geometry(config):
+    gridDict = get_grids(config.numerical)
+
+    if config.geometry_type.lower() == 'salpha':
+        return gridDict, SAlphaGeometry(gridDict['kx'], gridDict['ky'], gridDict['z'], config.physical)
+    elif config.geometry_type.lower() == 'zpinch':
+        return gridDict, ZPinchGeometry(gridDict['kx'], gridDict['ky'], gridDict['z'], config.physical)
+    else:
+        raise ValueError(f"Unknown geometry type: {config.geometry_type}")
+
 class Geometry:
     def __init__(self, kx, ky, z, params):
         """
@@ -335,32 +347,3 @@ class ZPinchGeometry(Geometry):
         """
         # In Z-pinch, B is uniform in z, so C∥^B = 0
         return np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
-
-def create_geometry(kx, ky, z, params, geometry_type='salpha'):
-    """
-    Factory function to create appropriate geometry object
-    
-    Parameters:
-    -----------
-    kx : ndarray
-        Radial wavenumbers (1D array)
-    ky : ndarray
-        Binormal wavenumbers (1D array)
-    z : ndarray
-        Parallel coordinate values (1D array)
-    params : object
-        Physical parameters
-    geometry_type : str, optional
-        Type of geometry ('salpha' or 'zpinch')
-        
-    Returns:
-    --------
-    Geometry
-        Geometry object of appropriate type
-    """
-    if geometry_type.lower() == 'salpha':
-        return SAlphaGeometry(kx, ky, z, params)
-    elif geometry_type.lower() == 'zpinch':
-        return ZPinchGeometry(kx, ky, z, params)
-    else:
-        raise ValueError(f"Unknown geometry type: {geometry_type}")

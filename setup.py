@@ -8,10 +8,13 @@ setup(
         'numpy',
         'scipy',
         'matplotlib',
-        'cupy',
         'h5py',
-        'pyyaml'
+        'pyyaml',
+        'imageio'
     ],
+    extras_require={
+        'gpu': ['cupy'],  # Users can install with GPU support using `pip install ninetails[gpu]`
+    },
     author='Antoine C.D. Hoffmann',
     author_email='ahoffman@pppl.gov',
     description='A 9 gyromoment fluid code',

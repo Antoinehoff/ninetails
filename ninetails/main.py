@@ -220,7 +220,7 @@ def main():
     
     # Generate standard plots
     print("Generating plots...")
-    postprocessor.plot_energy_evolution(diagnostics.energy_history)
+    postprocessor.plot_energy_evolution(diagnostics.integrated)
     postprocessor.plot_enstrophy_evolution(diagnostics.enstrophy_history)
     
     # Plot 2D snapshots at different times

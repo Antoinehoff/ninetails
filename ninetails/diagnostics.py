@@ -15,22 +15,35 @@ class Diagnostics:
         self.frames['t'] = []
         self.frames['fields'] = []
         
-        self.energy_history = {}
-        self.energy_history['t'] = []
-        self.energy_history['kinetic'] = []
-        self.energy_history['thermal'] = []
-        self.energy_history['potential'] = []
-        self.energy_history['total'] = []
-        
-        self.enstrophy_history = {}
-        self.enstrophy_history['t'] = []
-        self.enstrophy_history['enstrophy'] = []
+        self.integrated = {}
+        self.integrated['t'] = []
+        self.integrated['Ekin'] = []
+        self.integrated['Eth'] = []
+        self.integrated['Epot'] = []
+        self.integrated['Etot'] = []
+        self.integrated['enstrophy'] = []
         
         # compute the time where to save the data
         self.t_frame_diag = np.linspace(0, config.numerical.max_time, config.nframes)
         self.dt_frame_diag = self.t_frame_diag[1] - self.t_frame_diag[0]
         self.t_int_diag = np.linspace(0, config.numerical.max_time, config.nframes*10)
         self.dt_int_diag = self.t_int_diag[1] - self.t_int_diag[0]
+
+        self.mn2idx = {
+            'dens': 0,
+            'n': 0,
+            'N': 0,
+            'upar': 1,
+            'zeta': 1,
+            'Tpar': 2,
+            'Tperp': 3,
+            'qpar': 4,
+            'qperp': 5,
+            'Pparpar': 6,
+            'Pperppar': 7,
+            'Pperpperp': 8,
+            'phi': -1
+        }
 
     def update(self, t, y):
         """Update diagnostics at time t"""
@@ -40,38 +53,38 @@ class Diagnostics:
             self.t_frame_diag = self.t_frame_diag[1:]
         
         if t >= self.t_int_diag[0]:
-            E_kin, E_therm, E_pot = self.compute_energy(y)
-            enstrophy = self.compute_enstrophy(y[-1], self.grid)
+            E_kin, E_therm, E_pot, enstrophy = self.compute_integrated(y, self.grid)
 
-            self.energy_history['t'].append(t)
-            self.energy_history['kinetic'].append(E_kin)
-            self.energy_history['thermal'].append(E_therm)
-            self.energy_history['potential'].append(E_pot)
-            self.energy_history['total'].append(E_kin + E_therm + E_pot)
+            self.integrated['t'].append(t)
+            self.integrated['Ekin'].append(E_kin)
+            self.integrated['Eth'].append(E_therm)
+            self.integrated['Epot'].append(E_pot)
+            self.integrated['Etot'].append(E_kin + E_therm + E_pot)
+            self.integrated['enstrophy'].append(enstrophy)
+                        
+            # print terminal output into a file
+            with open('std.out', 'a') as f:
+                f.write(f"t = {t:.2e}, E_tot = {E_kin + E_therm + E_pot:.2e}\n")
 
-            self.enstrophy_history['t'].append(t)
-            self.enstrophy_history['enstrophy'].append(enstrophy)
-            
-            print(f"t = {t:.2e}, E_tot = {E_kin + E_therm + E_pot:.2e}")
-            
             self.t_int_diag = self.t_int_diag[1:]
             
     def finalize(self):
         # convert lists to numpy arrays
         for key in self.frames.keys():
             self.frames[key] = np.array(self.frames[key])
-        for key in self.energy_history.keys():
-            self.energy_history[key] = np.array(self.energy_history[key])
-        for key in self.enstrophy_history.keys():
-            self.enstrophy_history[key] = np.array(self.enstrophy_history[key])
-        
+        for key in self.integrated.keys():
+            self.integrated[key] = np.array(self.integrated[key])
+        self.nframes = len(self.frames['t'])
+        self.nintegrated = len(self.integrated['t'])
+
+
     def save_frame(self, t, y):
         """Save a frame of the moments and potential"""
         self.frames['t'].append(t)
         self.frames['fields'].append(y)
         self.nframes += 1
         
-    def compute_energy(self, y):
+    def compute_integrated(self, y, grid):
         """Compute total energy from moments and potential"""
         N, u_par, T_par, T_perp = y[:4]
         phi = y[-1]
@@ -82,13 +95,8 @@ class Diagnostics:
         E_therm = 0.5 * np.mean(np.abs(T_par)**2 + np.abs(T_perp)**2)
         # Potential energy
         E_pot = 0.5 * np.mean(np.abs(phi)**2)
-
-        return E_kin, E_therm, E_pot
         
-    def compute_enstrophy(self, phi, grid):
-        """Compute enstrophy from potential"""
-        # Compute vorticity in Fourier space
-        # Access the kx and ky from the dictionary correctly
+        # Compute enstrophy
         kx = grid['kx']
         ky = grid['ky']
         
@@ -115,4 +123,23 @@ class Diagnostics:
         # Compute enstrophy
         enstrophy = 0.5 * np.mean(np.abs(vort_hat)**2)
         
-        return enstrophy
+        return E_kin, E_therm, E_pot, enstrophy
+
+    def get_moment_data(self, moment_name, time_idx=None):
+        if moment_name not in self.mn2idx.keys():
+            raise ValueError(f"Unknown moment: {moment_name}")
+        
+        if time_idx is not None:
+            t = self.frames['t'][time_idx]
+            return self.frames['fields'][time_idx][self.mn2idx[moment_name],:,:,:], t
+        else:
+            t = self.frames['t']
+            return self.frames['fields'][:,self.mn2idx[moment_name],:,:,:], t
+        
+    def get_history_data(self, data_name):
+        if data_name == 'enstrophy':
+            return self.enstrophy_history[data_name], self.enstrophy_history['t']
+        elif data_name in ['kinetic', 'thermal', 'potential', 'total']:
+            return self.integrated[data_name], self.integrated['t']
+        else:
+            raise ValueError(f"Unknown data: {data_name}, available data are: 'enstrophy', 'kinetic', 'thermal', 'potential', 'total'")

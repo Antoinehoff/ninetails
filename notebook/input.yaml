@@ -1,0 +1,31 @@
+physical:
+  tau: 0.001
+  RN: 1.0
+  RT: 3500
+  eps: 0.1
+  shear: 0.8
+  alpha_MHD: 0.0
+  q0: 1.4
+  R0: 1.0
+  alpha: 0.1
+  kappa: 1.0
+numerical:
+  nx: 64
+  ny: 64
+  nz: 1
+  Lx: 40.0
+  Ly: 40.0
+  Lz: 6.283185307179586
+  dt: 0.1
+  max_time: 50.0
+  atol: 1.0e-08
+  rtol: 1.0e-06
+  muHD: 0.01
+geometry_type: zpinch
+nonlinear: true
+model_type: MHW
+output_dir: output
+nframes: 50
+restart: false
+restart_frame: 0
+restart_file: null

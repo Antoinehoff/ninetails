@@ -10,6 +10,7 @@ from .tools import get_grids
 from .geometry import create_geometry
 from .diagnostics import Diagnostics
 from .integrator import Integrator
+from .simulation import Simulation
 
 __all__ = [
     'FastFourierTransform',
@@ -23,5 +24,6 @@ __all__ = [
     'get_grids',
     'create_geometry',
     'Diagnostics',
-    'Integrator'
+    'Integrator',
+    'Simulation'
 ]

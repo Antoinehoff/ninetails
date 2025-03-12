@@ -32,7 +32,7 @@ def analyze(output_file, option='all'):
     if option == 'all' or option == 'energy':
         # Generate energy evolution plot
         print("Generating energy evolution plot...")
-        postprocessor.plot_energy_evolution(diagnostics.energy_history)
+        postprocessor.plot_energy_evolution(diagnostics.integrated)
     
     if option == 'all' or option == 'enstrophy':
         # Generate enstrophy evolution plot

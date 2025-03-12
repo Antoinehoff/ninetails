@@ -1,10 +1,16 @@
 import numpy as np
-import cupy as cp  # Use CuPy for GPU FFT
 import warnings
+
+try:
+    import cupy as cp
+    cp_available = True
+except ImportError:
+    warnings.warn("CuPy not found. GPU FFTs will not be available.")
+    cp_available = False
 
 class FastFourierTransform:
     def __init__(self):
-        self.gpu_available = self._check_gpu()
+        self.gpu_available = cp_available and self._check_gpu()
         
     def _check_gpu(self):
         """Check if a CUDA-capable GPU is available."""

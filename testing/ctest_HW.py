@@ -10,8 +10,8 @@ config = ntl.SimulationConfig.from_yaml('ctest_HW.yaml')
 phys_params = config.physical
 num_params = config.numerical
 
-num_params.max_time = 300
-config.nframes = 300
+num_params.max_time = 50
+config.nframes = 50
 
 config.info()
 
