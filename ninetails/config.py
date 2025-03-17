@@ -64,6 +64,7 @@ class SimulationConfig:
     restart: bool = False
     restart_frame: int = 0
     restart_file: str = None
+    follow_frame: bool = False
     
     @classmethod
     def from_yaml(cls, filename):
@@ -112,6 +113,7 @@ class SimulationConfig:
             restart=config_data.get('restart', False),
             restart_frame=config_data.get('restart_frame', 0),
             restart_file=config_data.get('restart_file', None),
+            follow_frame=config_data.get('follow_frame', False)
         )
     
     def save(self, filename):
@@ -127,6 +129,7 @@ class SimulationConfig:
             'restart': self.restart,
             'restart_frame': self.restart_frame,
             'restart_file': self.restart_file,
+            'follow_frame': self.follow_frame
         }
         
         # Save to YAML file

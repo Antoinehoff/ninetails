@@ -3,28 +3,31 @@ import numpy as np
 
 class PostProcessor:
 
-    def to_real_space(self, data_hat):
+    def to_real_space(simulation, data_hat):
         # Check if we have a time dimension
         has_time = len(data_hat.shape) > 3
-        
+        nx = simulation.ndims[0]
+        ny = simulation.ndims[1]
+        nz = simulation.ndims[2]
+
         if has_time:
             nt = data_hat.shape[0]
-            data_real = np.zeros((nt, self.nx, self.ny, self.nz))
+            data_real = np.zeros((nt, nx, ny, nz))
             
             # Loop over time and z
             for it in range(nt):
-                for iz in range(self.nz):
-                    data_real[it, :, :, iz] = np.squeeze(np.fft.irfft2(data_hat[it, :, :, iz], s=(self.nx, self.ny)))
+                for iz in range(nz):
+                    data_real[it, :, :, iz] = np.squeeze(np.fft.irfft2(data_hat[it, :, :, iz], s=(nx, ny)))
         else:
-            data_real = np.zeros((self.nx, self.ny, self.nz))
+            data_real = np.zeros((nx, ny, nz))
             
             # Loop over z
-            for iz in range(self.nz):
-                data_real[:, :, iz] = np.fft.irfft2(data_hat[:, :, iz], s=(self.nx, self.ny))
+            for iz in range(nz):
+                data_real[:, :, iz] = np.fft.irfft2(data_hat[:, :, iz], s=(nx, ny))
         
         return data_real
 
-    def compute_growth_rates(self, time, field, tlim =[], z_idx=0):
+    def compute_growth_rates(simulation, time, field, tlim =[], z_idx=0):
         # Extract time and field data
         if tlim:
             time_indices = np.where((time >= tlim[0]) & (time <= tlim[1]))[0]
@@ -35,12 +38,12 @@ class PostProcessor:
         field = field[time_indices, :, :, :]
 
         # Initialize growth rate array
-        growth_rates = np.zeros((self.nx, self.ny // 2 + 1))
-        max_amplitude = np.zeros((self.nx, self.ny // 2 + 1))
+        growth_rates = np.zeros((simulation.nkdims[0], simulation.nkdims[1]))
+        max_amplitude = np.zeros((simulation.nkdims[0], simulation.nkdims[1]))
         
         # Loop over all modes
-        for ikx in range(self.nx):
-            for iky in range(self.ny // 2 + 1):
+        for ikx in range(simulation.nkdims[0]):
+            for iky in range(simulation.nkdims[1]):
                 # Extract mode amplitude over time
                 mode_data = field[:, ikx, iky, z_idx]
                 amplitude = np.abs(mode_data)

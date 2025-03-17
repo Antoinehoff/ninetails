@@ -18,3 +18,30 @@ def get_grids(numparam):
         'kx': kx,
         'ky': ky
     }
+
+def dfdz_o4(fxyz, nz, dz):
+    """
+    Compute the 4th order finite difference of a function f
+    
+    Parameters:
+    -----------
+    f : array_like
+        Function to differentiate. Must have two ghost points on each side
+        The ghost are placed at the end of the array, so the two lower ghosts are
+            f[-2], f[-1]
+        The two upper ghosts are
+            f[n], f[n+1]
+        where n is the number of grid points.
+
+    dx : float
+        Grid spacing
+    
+    Returns:
+    --------
+    dfdx : array_like
+        4th order finite difference of f
+    """
+    # Compute the derivative according to (1/12 f-2 - 2/3 f-1 + 2/3 f+1 - 1/12 f+2)/dz
+    for iz in range(nz):
+        dfdz = (1/12*fxyz[:,:,iz-2] - 2/3*fxyz[:,:,iz-1] + 2/3*fxyz[:,:,iz+1] - 1/12*fxyz[:,:,iz+2])/dz
+    return dfdz

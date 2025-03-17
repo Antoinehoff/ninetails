@@ -1,10 +1,12 @@
 # diagnostics.py
 import numpy as np
+import matplotlib.pyplot as plt
+
 from .postprocessor import PostProcessor
 from .tools import get_grids
 
 class Diagnostics:
-    def __init__(self, config = None):
+    def __init__(self, config = None, show_frame=False):
         
         self.config = config
         
@@ -14,7 +16,8 @@ class Diagnostics:
         self.frames = {}
         self.frames['t'] = []
         self.frames['fields'] = []
-        
+        self.show_frame = show_frame
+
         self.integrated = {}
         self.integrated['t'] = []
         self.integrated['Ekin'] = []
@@ -45,12 +48,17 @@ class Diagnostics:
             'phi': -1
         }
 
+        self.uidx = 0
+
     def update(self, t, y):
         """Update diagnostics at time t"""
-        
+        if self.uidx == 0: self.init()
+        self.uidx += 1
+
         if t >= self.t_frame_diag[0]:
             self.save_frame(t, y)
             self.t_frame_diag = self.t_frame_diag[1:]
+            self.show_last_frame(t,y)
         
         if t >= self.t_int_diag[0]:
             E_kin, E_therm, E_pot, enstrophy = self.compute_integrated(y, self.grid)
@@ -68,6 +76,13 @@ class Diagnostics:
 
             self.t_int_diag = self.t_int_diag[1:]
             
+    def init(self):
+        if self.config.follow_frame:
+            self.figure = plt.figure()
+            self.ax = self.figure.add_subplot(111)
+            plt.ion()
+            plt.show()
+
     def finalize(self):
         # convert lists to numpy arrays
         for key in self.frames.keys():
@@ -83,7 +98,21 @@ class Diagnostics:
         self.frames['t'].append(t)
         self.frames['fields'].append(y)
         self.nframes += 1
-        
+        if self.config.follow_frame:
+            self.show_last_frame(t, y)
+
+    def show_last_frame(self, t, y):
+        """Show the last frame"""
+        if self.show_frame:
+            #self.ax.clear()
+            self.ax.plot(self.grid['x'], y[0,0,0,0], label='N')
+            self.ax.plot(self.grid['x'], y[1,0,0,0], label='u')
+            self.ax.plot(self.grid['x'], y[2,0,0,0], label='T')    
+            self.ax.plot(self.grid['x'], y[3,0,0,0], label='phi')
+            self.ax.legend()
+            self.ax.set_title(f"t = {t:.2e}")
+            plt.pause(0.1)
+
     def compute_integrated(self, y, grid):
         """Compute total energy from moments and potential"""
         N, u_par, T_par, T_perp = y[:4]
@@ -131,10 +160,10 @@ class Diagnostics:
         
         if time_idx is not None:
             t = self.frames['t'][time_idx]
-            return self.frames['fields'][time_idx][self.mn2idx[moment_name],:,:,:], t
+            return t, self.frames['fields'][time_idx][self.mn2idx[moment_name],:,:,:]
         else:
             t = self.frames['t']
-            return self.frames['fields'][:,self.mn2idx[moment_name],:,:,:], t
+            return t, self.frames['fields'][:,self.mn2idx[moment_name],:,:,:]
         
     def get_history_data(self, data_name):
         if data_name == 'enstrophy':

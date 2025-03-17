@@ -38,12 +38,25 @@ class Geometry:
         self.nz = len(z)
         
         # Initialize arrays
+        self.g_xx = np.zeros((self.nkx, self.nky, self.nz))
+        self.g_xy = np.zeros((self.nkx, self.nky, self.nz))
+        self.g_xz = np.zeros((self.nkx, self.nky, self.nz))
+        self.g_yy = np.zeros((self.nkx, self.nky, self.nz))
+        self.g_yz = np.zeros((self.nkx, self.nky, self.nz))
+        self.g_zz = np.zeros((self.nkx, self.nky, self.nz))
+        
+        self.jacobian = np.zeros(self.nz)
+        self.hatB = np.zeros(self.nz)
+        self.dlnBdx = np.zeros(self.nz)
+        self.dlnBdy = np.zeros(self.nz)
+        self.dlnBdz = np.zeros(self.nz)
+
         self.Cperp = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
         self.Cpar = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
         self.CparB = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
         
         # Compute metric coefficients
-        self.metrics = self.compute_metrics()
+        self.compute_metrics()
         
         # Compute k_perp^2 and l_perp
         self.compute_kperp_and_lperp()
@@ -69,22 +82,6 @@ class Geometry:
         """
         kx_2d, ky_2d = np.meshgrid(self.kx, self.ky, indexing='ij')
         
-        # Initialize for 3D arrays
-        g_xx_3d = np.zeros((self.nkx, self.nky, self.nz))
-        g_xy_3d = np.zeros((self.nkx, self.nky, self.nz))
-        g_yy_3d = np.zeros((self.nkx, self.nky, self.nz))
-        
-        # Expand 2D metrics to 3D for all z
-        for iz in range(self.nz):
-            g_xx_3d[:, :, iz] = self.metrics['g_xx']
-            g_xy_3d[:, :, iz] = self.metrics['g_xy']
-            g_yy_3d[:, :, iz] = self.metrics['g_yy']
-        
-        # Store the 3D metric tensors
-        self.g_xx = g_xx_3d
-        self.g_xy = g_xy_3d
-        self.g_yy = g_yy_3d
-        
         # Compute k_perp^2 according to equation (A12)
         kx_3d = kx_2d[:, :, np.newaxis]
         ky_3d = ky_2d[:, :, np.newaxis]
@@ -100,9 +97,9 @@ class Geometry:
         """
         Compute all curvature operators
         """
-        self.Cperp = self.compute_Cxy()
-        self.Cpar = self.compute_Cz()
-        self.CparB = self.compute_CBz()
+        self.Cperp = 0.0 # self.compute_Cxy()
+        self.Cpar = 0.0 #self.compute_Cz
+        self.CparB = 0.0 #self.compute_CBz()
     
     def compute_Cxy(self):
         """
@@ -113,19 +110,33 @@ class Geometry:
         ndarray
             Cxy operator array
         """
-        raise NotImplementedError("Must be implemented in subclass")
+        i_kx = np.zeros_like(self.g_xx, dtype=np.complex128)
+        i_ky = np.zeros_like(self.g_xx, dtype=np.complex128)
+
+        for i in range(self.nkx):
+            for j in range(self.nky):
+                for k in range(self.nz):
+                    i_kx[i, j, k] = 1j * self.kx[i]
+                    i_ky[i, j, k] = 1j * self.ky[j]
+            
+
+        Gamma1 = self.g_xx * self.g_yy - self.g_xy**2
+        Gamma2 = self.g_yy
+        Gamma3 = self.g_xx
+
+        G21 = Gamma2/Gamma1
+        G31 = Gamma3/Gamma1
+
+        return -(self.dlnBdy + G21 * self.dlnBdz) * i_kx \
+               +(self.dlnBdx - G31 * self.dlnBdz) * i_ky
     
-    def compute_Cz(self):
+    def compute_Cz(self, fin):
         """
-        Compute the parallel curvature operator C∥ as defined in equation (A14)
-        
-        Returns:
-        --------
-        ndarray
-            C∥ operator array
+        Compute the parallel curvature operator C∥f as defined in equation (A14)
         """
-        raise NotImplementedError("Must be implemented in subclass")
-    
+
+        return self.Cpar_factor * np.gradient(fin, axis=2, )
+
     def compute_CBz(self):
         """
         Compute the parallel magnetic curvature C∥^B as defined in equation (A15)
@@ -135,7 +146,7 @@ class Geometry:
         ndarray
             C∥^B operator array
         """
-        raise NotImplementedError("Must be implemented in subclass")
+        return 0.0
 
 class SAlphaGeometry(Geometry):
     def compute_metrics(self):
@@ -153,18 +164,6 @@ class SAlphaGeometry(Geometry):
         eps = getattr(self.params, 'eps', 0.1)  # Default inverse aspect ratio
         q0 = getattr(self.params, 'q0', 2.0)    # Default safety factor
         
-        # Initialize metric tensors
-        g_xx = np.ones((self.nkx, self.nky))
-        g_xy = np.zeros((self.nkx, self.nky))
-        g_yy = np.ones((self.nkx, self.nky))
-        
-        # Initialize Jacobian and B field
-        self.jacobian = np.zeros(self.nz)
-        self.hatB = np.zeros(self.nz)
-        self.dBdx = np.zeros(self.nz)
-        self.dBdy = np.zeros(self.nz)
-        self.dBdz = np.zeros(self.nz)
-        
         # Compute metric components at each z location
         for iz, zz in enumerate(self.z):
             # Compute sheared metric components
@@ -174,97 +173,13 @@ class SAlphaGeometry(Geometry):
             # Jacobian and B field
             self.jacobian[iz] = q0 * (1 + eps * np.cos(zz))
             self.hatB[iz] = 1 / (1 + eps * np.cos(zz))
-            self.dBdz[iz] = eps * np.sin(zz) * self.hatB[iz]**2
+            self.dlnBdz[iz] = eps * np.sin(zz) * self.hatB[iz]**2
             
             # For s-alpha geometry, the metrics are uniform in x,y at each z
             for ikx in range(self.nkx):
                 for iky in range(self.nky):
-                    g_xy[ikx, iky] = g_xy_z
-                    g_yy[ikx, iky] = g_yy_z
-        
-        # Save and return metric dictionary
-        metrics = {
-            'g_xx': g_xx,
-            'g_xy': g_xy,
-            'g_yy': g_yy
-        }
-        
-        return metrics
-    
-    def compute_Cxy(self):
-        """
-        Compute perpendicular curvature operator for s-alpha geometry
-        according to equation (A13)
-        
-        Returns:
-        --------
-        ndarray
-            Cxy operator
-        """
-        Cxy = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
-        
-        # Get the 2D meshgrid of kx, ky
-        kx_2d, ky_2d = np.meshgrid(self.kx, self.ky, indexing='ij')
-        
-        # Extract parameters
-        eps = getattr(self.params, 'eps', 0.1)
-        
-        for iz, zz in enumerate(self.z):
-            # Compute curvature components
-            Cx = 0.0  # No x-component in s-alpha
-            Cy = -eps * np.cos(zz)  # Standard s-alpha curvature
-            
-            # Apply to all k modes at this z location
-            for ikx in range(self.nkx):
-                for iky in range(self.nky):
-                    Cxy[ikx, iky, iz] = Cx * kx_2d[ikx, iky] + Cy * ky_2d[ikx, iky]
-        
-        return Cxy
-    
-    def compute_Cz(self):
-        """
-        Compute parallel curvature operator for s-alpha geometry
-        according to equation (A14)
-        
-        Returns:
-        --------
-        ndarray
-            C∥ operator
-        """
-        Cz = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
-        
-        # Extract parameter
-        R0 = getattr(self.params, 'R0', 1.0)
-        
-        for iz in range(self.nz):
-            # Compute C∥ = (R0 / (Jxyz * B̂)) * ∂/∂z
-            factor = R0 / (self.jacobian[iz] * self.hatB[iz])
-            
-            # Apply to all k modes
-            Cz[:, :, iz] = factor
-        
-        return Cz
-    
-    def compute_CBz(self):
-        """
-        Compute parallel magnetic curvature for s-alpha geometry
-        according to equation (A15): C∥^B = C∥ ln B
-        
-        Returns:
-        --------
-        ndarray
-            C∥^B operator
-        """
-        CBz = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
-        
-        for iz in range(self.nz):
-            # C∥^B = C∥ ln B
-            lnB = np.log(self.hatB[iz])
-            
-            # Apply to all k modes
-            CBz[:, :, iz] = self.Cpar[:, :, iz] * lnB
-        
-        return CBz
+                    self.g_xy[ikx, iky] = g_xy_z
+                    self.g_yy[ikx, iky] = g_yy_z
 
 class ZPinchGeometry(Geometry):
     def compute_metrics(self):
@@ -277,73 +192,16 @@ class ZPinchGeometry(Geometry):
             Dictionary containing the metric tensor components
         """
         # In Z-pinch, metrics are simpler (cartesian)
-        g_xx = np.ones((self.nkx, self.nky))
-        g_xy = np.zeros((self.nkx, self.nky))
-        g_yy = np.ones((self.nkx, self.nky))
-        
-        # Compute Jacobian and B field
-        self.jacobian = np.ones(self.nz)
-        self.hatB = np.ones(self.nz)
-        self.dBdx = np.ones(self.nz)  # In Z-pinch, dB/dx = B
-        self.dBdy = np.zeros(self.nz)
-        self.dBdz = np.zeros(self.nz)
-        
-        # Return metrics dictionary
-        return {
-            'g_xx': g_xx,
-            'g_xy': g_xy,
-            'g_yy': g_yy
-        }
-    
-    def compute_Cxy(self):
-        """
-        Compute perpendicular curvature operator for Z-pinch geometry
-        according to equation (A13)
-        
-        Returns:
-        --------
-        ndarray
-            Cxy operator
-        """
-        Cxy = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
-        
-        # Get the 2D meshgrid of kx, ky
-        kx_2d, ky_2d = np.meshgrid(self.kx, self.ky, indexing='ij')
-        
+        R0 = getattr(self.params, 'R0', 1.0)
+        # In Z-pinch, metrics are uniform in x,y at each z
         for iz in range(self.nz):
-            # In Z-pinch, curvature is in y-direction
-            Cx = 0.0
-            Cy = 1.0  # Normalized curvature in Z-pinch
-            
-            # Apply to all k modes at this z location
-            for ikx in range(self.nkx):
-                for iky in range(self.nky):
-                    Cxy[ikx, iky, iz] = Cx * kx_2d[ikx, iky] + Cy * ky_2d[ikx, iky]
-        
-        return Cxy
-    
-    def compute_Cz(self):
-        """
-        Compute parallel curvature operator for Z-pinch geometry
-        according to equation (A14)
-        
-        Returns:
-        --------
-        ndarray
-            C∥ operator
-        """
-        # In Z-pinch, this is a constant
-        return np.ones((self.nkx, self.nky, self.nz), dtype=np.complex128)
-    
-    def compute_CBz(self):
-        """
-        Compute parallel magnetic curvature for Z-pinch geometry
-        according to equation (A15): C∥^B = C∥ ln B
-        
-        Returns:
-        --------
-        ndarray
-            C∥^B operator
-        """
-        # In Z-pinch, B is uniform in z, so C∥^B = 0
-        return np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+            self.g_xx[:, :, iz] = 1.0
+            self.g_yy[:, :, iz] = 1.0
+            self.g_zz[:, :, iz] = 1.0/R0**2
+
+        # Compute Jacobian and B field
+        self.jacobian = R0**2
+        self.hatB = np.ones((self.nkx, self.nky, self.nz))
+        self.dlnBdx = np.zeros((self.nkx, self.nky, self.nz))
+        self.dlnBdy = np.zeros((self.nkx, self.nky, self.nz))
+        self.dlnBdz = np.zeros((self.nkx, self.nky, self.nz))
