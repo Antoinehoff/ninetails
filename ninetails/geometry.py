@@ -14,6 +14,7 @@ def create_geometry(config):
         raise ValueError(f"Unknown geometry type: {config.geometry_type}")
 
 class Geometry:
+    zbc = None # Boundary condition for z (to be implemented in subclasses)
     def __init__(self, kx, ky, z, params):
         """
         Base geometry class for the fluid model.
@@ -135,7 +136,7 @@ class Geometry:
         Compute the parallel curvature operator C∥f as defined in equation (A14)
         """
 
-        return self.Cpar_factor * np.gradient(fin, axis=2, )
+        return self.Cpar_factor * np.gradient(fin, axis=2)
 
     def compute_CBz(self):
         """
@@ -149,6 +150,7 @@ class Geometry:
         return 0.0
 
 class SAlphaGeometry(Geometry):
+    zbc = 'twist_and_shift'
     def compute_metrics(self):
         """
         Compute metric coefficients for s-alpha geometry
@@ -182,6 +184,7 @@ class SAlphaGeometry(Geometry):
                     self.g_yy[ikx, iky] = g_yy_z
 
 class ZPinchGeometry(Geometry):
+    zbc = 'periodic'
     def compute_metrics(self):
         """
         Compute metric coefficients for Z-pinch geometry

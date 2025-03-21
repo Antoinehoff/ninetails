@@ -54,18 +54,15 @@ class HighOrderFluid:
         self.iky = 1j * ky_grid[:, :, np.newaxis]
         self.ikx = 1j * kx_grid[:, :, np.newaxis]
     
-    def rhs(self, t, y):
-        """
-        Compute the right-hand side of the fluid equations.
-        """
+        # Set the right-hand side function based on the model type
         if self.model_type == '9GM':
-            return self.gyro_moment_rhs(t, y)
+            self.rhs = self.gyro_moment_rhs
         elif self.model_type == 'HM':
-            return self.hasegawa_mima_rhs(t, y)
+            self.rhs = self.hasegawa_mima_rhs
         elif self.model_type == 'HW':
-            return self.hasegawa_wakatani_rhs(t, y)
+            self.rhs = self.hasegawa_wakatani_rhs
         elif self.model_type == 'MHW':
-            return self.modified_hasegawa_wakatani_rhs(t, y)
+            self.rhs = self.modified_hasegawa_wakatani_rhs
         else:
             raise ValueError("Unknown solver type: {}".format(self.model_type))
 

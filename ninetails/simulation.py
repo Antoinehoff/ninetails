@@ -6,8 +6,8 @@ from .tools import get_grids
 from .geometry import create_geometry
 from .integrator import Integrator
 from .models import HighOrderFluid
-from .postprocessor import PostProcessor
 from .plotter import Plotter
+from .boundary_conditions import BoundaryConditions
 
 class Simulation:
     def __init__(self, input_file=None, config=None):
@@ -32,7 +32,7 @@ class Simulation:
 
     def run(self):
         '''Run the simulation'''
-        self.RKscheme.integrate(self.equations.rhs, self.y0, self.t_span, self.config.numerical.dt)
+        self.RKscheme.integrate(self.equations.rhs, self.y0, self.t_span, self.config.numerical.dt, self.BC)
     
     def set_simulationconfig(self, **kwargs):
         '''
@@ -102,6 +102,11 @@ class Simulation:
         self.kgrids = [gridDict['kx'], gridDict['ky'], gridDict['z']]
         self.nkdims = [len(self.kgrids[0]), len(self.kgrids[1]), len(self.kgrids[2])]
 
+        # Extended dimensions to include ghosts in the z direction for periodicity and twist-and-shift
+        self.ngz = 4 if self.ndims[2] > 1 else 0
+        self.ndims_ext = [num_params.nx, num_params.ny, num_params.nz + self.ngz]
+        self.nkdims_ext = [len(self.kgrids[0]), len(self.kgrids[1]), len(self.kgrids[2]) + self.ngz]
+
         # Set up time span and time points for output
         self.t_span = (0, num_params.max_time)
         self.t_diag = np.linspace(0, num_params.max_time, self.config.nframes)  # output points
@@ -110,7 +115,7 @@ class Simulation:
 
         # Initialize state vector
         self.nmom = 9
-        self.y0 = np.array([np.zeros(self.nkdims, dtype=np.complex128) for _ in range(self.nmom+1)])
+        self.y0 = np.array([np.zeros(self.nkdims_ext, dtype=np.complex128) for _ in range(self.nmom+1)])
 
         # Add some random noise to break symmetry
         N_real =  0.5 * np.random.normal(size=self.ndims)
@@ -123,6 +128,7 @@ class Simulation:
         self.diagnostics = Diagnostics(self.config)
         self.RKscheme = Integrator(method='RK4', diagnostic=self.diagnostics, verbose=self.verbose)
         self.plotter = Plotter(self)
+        self.BC = BoundaryConditions(y=self.y0, model=self.geometry.zbc, nghosts=self.ngz) 
 
     def info(self):
         '''Print the parameters for verification'''

@@ -40,7 +40,7 @@ class Integrator:
             print(f"t = {t:.2e}, dt = {dt:.2e}")
         self.diagnostic.update(t, y)
  
-    def integrate(self, rhs_func, y0, t_span, dt):
+    def integrate(self, rhs_func, y0, t_span, dt, BC):
         """
         Integrate the ODE system using the specified method.
         """
@@ -49,7 +49,7 @@ class Integrator:
         start_time = time.time()  # Record start time
         
         if self.method in ['RK4', 'rk4']:
-            t, y = self.rk4_integrate(rhs_func, t_span, y0, dt)
+            t, y = self.rk4_integrate(rhs_func, t_span, y0, dt, BC)
             self.print_and_diag(t, y, dt)
         else:
             raise ValueError("Invalid integration method")
@@ -73,13 +73,15 @@ class Integrator:
         
         return y_next
 
-    def rk4_integrate(self, rhs, t_span, y0, dt):
+    def rk4_integrate(self, rhs, t_span, y0, dt, BC):
         t = t_span[0]
         y = y0.copy()
         tmax = t_span[1]
         while t < tmax:
             if t + dt > tmax:
                 dt = tmax - t  # Adjust dt for the last step
+            
+            BC.apply(y)
             
             y = self.rk4_step(rhs, t, y, dt)
             
