@@ -55,8 +55,10 @@ class HighOrderFluid:
         self.ikx = 1j * kx_grid[:, :, np.newaxis]
     
         # Set the right-hand side function based on the model type
-        if self.model_type == '9GM':
-            self.rhs = self.gyro_moment_rhs
+        if self.model_type == 'GM9':
+            self.rhs = self.GM9
+        elif self.model_type == 'GM4':
+            self.rhs = self.GM4
         elif self.model_type == 'HM':
             self.rhs = self.hasegawa_mima_rhs
         elif self.model_type == 'HW':
@@ -111,9 +113,6 @@ class HighOrderFluid:
         """
         Compute the right-hand side of the modified Hasegawa-Wakatani equations.
         """
-        # Unpack the moments
-        n = y[0]
-        zeta = y[1]
         
         y[-1] = -y[1]/self.kperp2_pos
         y[-1][self.kperp2 == 0] = 0
@@ -138,7 +137,69 @@ class HighOrderFluid:
         # Return the derivatives, including dphidt=0
         return self.dydt
     
-    def gyro_moment_rhs(self, t, y):
+        
+    def GM4(self, t, y):
+        """
+        Compute the right-hand side of the fluid equations using the 9GM framework.
+        """
+        # First update phi based on the Poisson equation
+        y = self.poisson_solver.solve(y)
+        
+        # Unpack the moments
+        N, u_par, T_par, T_perp, q_par, q_perp, _, _, _, phi = y
+        tau = self.p.tau
+        sqrt_tau = np.sqrt(tau)
+        
+        # Add linear terms (always included)        
+        # Equation (A1): density
+        self.dydt[0] = -2 * tau * self.Cperp(T_par - T_perp + N) #
+        self.dydt[0] -= sqrt_tau * (self.Cpar(u_par) - self.CparB(u_par)) #
+        self.dydt[0] -= ((1 - self.l_perp) * self.iky * self.p.RN - self.l_perp * self.iky * self.p.RT) * phi #
+        
+        # Equation (A2): parallel velocity
+        self.dydt[1] = -sqrt_tau * self.Cpar(N) #
+        self.dydt[1] -= 4.0 * tau * self.Cperp(u_par) #
+        self.dydt[1] -= 6.0 * tau * self.Cperp(q_par) #
+        self.dydt[1] += 1.0 * tau * self.Cperp(q_perp) #
+        self.dydt[1] -= 2.0 * sqrt_tau * (self.Cpar(T_par) - self.CparB(T_par)) #
+        self.dydt[1] += sqrt_tau * self.CparB(T_perp) #
+        
+        # Equation (A3): parallel temperature
+        self.dydt[2] = -6.0 * tau * self.Cperp(T_par) #
+        self.dydt[2] -= 2.0 * sqrt_tau * self.Cpar(u_par) #
+        self.dydt[2] -= 0.5 * (1 - self.l_perp) * self.iky * self.p.RT * phi #
+        
+        # Equation (A4): perpendicular temperature
+        self.dydt[3] = -4.0 * tau * self.Cperp(T_perp) #
+        self.dydt[3] -= sqrt_tau * self.CparB(u_par) #
+        self.dydt[3] -= (self.l_perp * self.iky * self.p.RN \
+                       + (3 * self.l_perp - 1) * self.iky * self.p.RT) * phi #
+        
+        # Compute the nonlinear terms using Poisson brackets if enabled
+        if self.nonlinear:
+            # Prepare modified potentials for Poisson brackets
+            phi_mod1 = (1 - self.l_perp) * phi
+            phi_mod2 = self.l_perp * phi
+
+            # Equation (A1): density
+            self.dydt[0] -= self.pb.compute(phi_mod1, N)
+            self.dydt[0] -= self.pb.compute(phi_mod2, T_perp)
+            
+            # Equation (A2): parallel velocity
+            self.dydt[1] -= self.pb.compute(phi_mod1, u_par)
+            
+            # Equation (A3): parallel temperature
+            self.dydt[2] -= self.pb.compute(phi_mod1, T_par)
+            
+            # Equation (A4): perpendicular temperature
+            self.dydt[3] -= self.pb.compute(phi_mod1, T_perp)  # Corrected with phi_mod3
+            self.dydt[3] += tau * self.pb.compute(phi_mod1, N)  # Corrected sign
+        
+        # Return the derivatives, including dphidt=0
+        return self.dydt
+    
+
+    def GM9(self, t, y):
         """
         Compute the right-hand side of the fluid equations using the 9GM framework.
         """
@@ -160,13 +221,55 @@ class HighOrderFluid:
         dP_parpar_dt = np.zeros_like(P_parpar)
         dP_perppar_dt = np.zeros_like(P_parperp)
         dP_perpperp_dt = np.zeros_like(P_perpperp)
+
+        # Add linear terms (always included)        
+        # Equation (A1): density
+        dN_dt = -2 * tau * self.Cperp(T_par - T_perp + N) #
+        dN_dt -= sqrt_tau * (self.Cpar(u_par) - self.CparB(u_par)) #
+        dN_dt -= ((1 - self.l_perp) * self.iky * self.p.RN - self.l_perp * self.iky * self.p.RT) * phi #
         
-        # Prepare modified potentials for Poisson brackets
-        phi_mod1 = (1 - self.l_perp) * phi
-        phi_mod2 = self.l_perp * phi
+        # Equation (A2): parallel velocity
+        du_par_dt = -sqrt_tau * self.Cpar(N) #
+        du_par_dt -= 4.0 * tau * self.Cperp(u_par) #
+        du_par_dt -= 6.0 * tau * self.Cperp(q_par) #
+        du_par_dt += 1.0 * tau * self.Cperp(q_perp) #
+        du_par_dt -= 2.0 * sqrt_tau * (self.Cpar(T_par) - self.CparB(T_par)) #
+        du_par_dt += sqrt_tau * self.CparB(T_perp) #
+        
+        # Equation (A3): parallel temperature
+        dT_par_dt = -6.0 * tau * self.Cperp(T_par) #
+        dT_par_dt -= 2/3 * tau * self.Cperp(P_parpar) #
+        dT_par_dt += 1.0 * tau * self.Cperp(P_parperp) #
+        dT_par_dt -= 3.0 * sqrt_tau * (self.Cpar(q_par) - self.CparB(q_par)) #
+        dT_par_dt += 2.0 * sqrt_tau * self.CparB(q_perp) #
+        dT_par_dt -= 2.0 * sqrt_tau * self.Cpar(u_par) #
+        dT_par_dt -= 0.5 * (1 - self.l_perp) * self.iky * self.p.RT * phi #
+        
+        # Equation (A4): perpendicular temperature
+        dT_perp_dt = -4.0 * tau * self.Cperp(T_perp) #
+        dT_perp_dt += 1.0 * tau * self.Cperp(N - 2 * P_parperp + 2 * P_perpperp) #
+        dT_perp_dt -= sqrt_tau * (self.Cpar(q_perp) - 2 * self.CparB(q_perp)) #
+        dT_perp_dt -= sqrt_tau * self.CparB(u_par) #
+        dT_perp_dt -= (self.l_perp * self.iky * self.p.RN \
+                       + (3 * self.l_perp - 1) * self.iky * self.p.RT) * phi #
+        
+        # Equation (A5): parallel heat flux
+        dq_par_dt =  2.0 * sqrt_tau * (self.CparB(P_parpar) - self.Cpar(P_parpar)) #
+        dq_par_dt += 3.0 * sqrt_tau * self.CparB(P_parperp) #
+        dq_par_dt -= 3.0 * sqrt_tau * self.Cpar(T_par) #
+        
+        # Equation (A6): perpendicular heat flux
+        dq_perp_dt = -2.0 * sqrt_tau * (self.Cpar(P_parperp) - 2 * self.CparB(P_parperp)) #
+        dq_perp_dt += 2.0 * sqrt_tau * self.CparB(P_perpperp) #
+        dq_perp_dt -= sqrt_tau * (self.Cpar(T_perp) + self.CparB(T_perp)) #
+        dq_perp_dt -= 2.0 * sqrt_tau * self.CparB(T_par) #
         
         # Compute the nonlinear terms using Poisson brackets if enabled
         if self.nonlinear:
+            # Prepare modified potentials for Poisson brackets
+            phi_mod1 = (1 - self.l_perp) * phi
+            phi_mod2 = self.l_perp * phi
+
             # Equation (A1): density
             dN_dt -= self.pb.compute(phi_mod1, N)
             dN_dt -= self.pb.compute(phi_mod2, T_perp)
@@ -202,49 +305,6 @@ class HighOrderFluid:
             dP_perpperp_dt -= self.pb.compute(phi, P_perpperp)
             dP_perpperp_dt += 0.5 * self.pb.compute(phi, T_perp)
             dP_perpperp_dt -= 0.25 * self.pb.compute(phi, N)
-        
-        # Add linear terms (always included)
-        
-        # Equation (A1): density
-        dN_dt -= 2 * tau * self.Cperp * (T_par - T_perp + N) #
-        dN_dt -= sqrt_tau * (self.Cpar - self.CparB) * u_par #
-        dN_dt -= ((1 - self.l_perp) * self.iky * self.p.RN - self.l_perp * self.iky * self.p.RT) * phi #
-        
-        # Equation (A2): parallel velocity
-        du_par_dt -= sqrt_tau * self.Cpar * N #
-        du_par_dt -= 4.0 * tau * self.Cperp * u_par #
-        du_par_dt -= 6.0 * tau * self.Cperp * q_par #
-        du_par_dt += 1.0 * tau * self.Cperp * q_perp #
-        du_par_dt -= 2.0 * sqrt_tau * (self.Cpar - self.CparB) * T_par #
-        du_par_dt += self.CparB * sqrt_tau * T_perp #
-        
-        # Equation (A3): parallel temperature
-        dT_par_dt -= 6.0 * tau * self.Cperp * T_par #
-        dT_par_dt -= 2/3 * tau * self.Cperp * P_parpar #
-        dT_par_dt += 1.0 * tau * self.Cperp * P_parperp #
-        dT_par_dt -= 3.0 * sqrt_tau * (self.Cpar - self.CparB) * q_par #
-        dT_par_dt += 2.0 * sqrt_tau * self.CparB * q_perp #
-        dT_par_dt -= 2.0 * sqrt_tau * self.Cpar * u_par #
-        dT_par_dt -= 0.5 * (1 - self.l_perp) * self.iky * self.p.RT * phi #
-        
-        # Equation (A4): perpendicular temperature
-        dT_perp_dt -= 4.0 * tau * self.Cperp * T_perp #
-        dT_perp_dt += 1.0 * tau * self.Cperp * (N - 2 * P_parperp + 2 * P_perpperp) #
-        dT_perp_dt -= sqrt_tau * (self.Cpar - 2 * self.CparB) * q_perp #
-        dT_perp_dt -= sqrt_tau * self.CparB * u_par #
-        dT_perp_dt -= (self.l_perp * self.iky * self.p.RN \
-                       + (3 * self.l_perp - 1) * self.iky * self.p.RT) * phi #
-        
-        # Equation (A5): parallel heat flux
-        dq_par_dt += 2.0 * sqrt_tau * (self.CparB - self.Cpar) * P_parpar #
-        dq_par_dt += 3.0 * sqrt_tau * self.CparB * P_parperp #
-        dq_par_dt -= 3.0 * sqrt_tau * self.Cpar * T_par #
-        
-        # Equation (A6): perpendicular heat flux
-        dq_perp_dt -= 2.0 * sqrt_tau * (self.Cpar - 2 * self.CparB) * P_parperp #
-        dq_perp_dt += 2.0 * sqrt_tau * self.CparB * P_perpperp #
-        dq_perp_dt -= sqrt_tau * (self.Cpar + self.CparB) * T_perp #
-        dq_perp_dt -= 2.0 * sqrt_tau * self.CparB * T_par #
         
         # Return the derivatives, including dphidt=0
         return np.array([dN_dt, du_par_dt, dT_par_dt, dT_perp_dt, dq_par_dt, dq_perp_dt, 

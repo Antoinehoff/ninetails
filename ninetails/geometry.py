@@ -46,11 +46,11 @@ class Geometry:
         self.g_yz = np.zeros((self.nkx, self.nky, self.nz))
         self.g_zz = np.zeros((self.nkx, self.nky, self.nz))
         
-        self.jacobian = np.zeros(self.nz)
-        self.hatB = np.zeros(self.nz)
-        self.dlnBdx = np.zeros(self.nz)
-        self.dlnBdy = np.zeros(self.nz)
-        self.dlnBdz = np.zeros(self.nz)
+        self.jacobian = np.zeros((self.nkx, self.nky, self.nz))
+        self.hatB = np.zeros((self.nkx, self.nky, self.nz))
+        self.dlnBdx = np.zeros((self.nkx, self.nky, self.nz))
+        self.dlnBdy = np.zeros((self.nkx, self.nky, self.nz))
+        self.dlnBdz = np.zeros((self.nkx, self.nky, self.nz))
 
         self.Cperp = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
         self.Cpar = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
@@ -63,7 +63,7 @@ class Geometry:
         self.compute_kperp_and_lperp()
         
         # Compute curvature operators
-        self.compute_curvature_operators()
+        self.get_curvature_operators()
     
     def compute_metrics(self):
         """
@@ -94,22 +94,9 @@ class Geometry:
         # Compute l_perp as defined in equation (A11)
         self.l_perp = 0.5 * self.params.tau * self.kperp2
     
-    def compute_curvature_operators(self):
+    def get_curvature_operators(self):
         """
         Compute all curvature operators
-        """
-        self.Cperp = 0.0 # self.compute_Cxy()
-        self.Cpar = 0.0 #self.compute_Cz
-        self.CparB = 0.0 #self.compute_CBz()
-    
-    def compute_Cxy(self):
-        """
-        Compute the perpendicular curvature operator Cxy as defined in equation (A13)
-        
-        Returns:
-        --------
-        ndarray
-            Cxy operator array
         """
         i_kx = np.zeros_like(self.g_xx, dtype=np.complex128)
         i_ky = np.zeros_like(self.g_xx, dtype=np.complex128)
@@ -128,38 +115,49 @@ class Geometry:
         G21 = Gamma2/Gamma1
         G31 = Gamma3/Gamma1
 
-        return -(self.dlnBdy + G21 * self.dlnBdz) * i_kx \
-               +(self.dlnBdx - G31 * self.dlnBdz) * i_ky
+        self.Cxy = (-(self.dlnBdy + G21 * self.dlnBdz) * i_kx \
+                      +(self.dlnBdx - G31 * self.dlnBdz) * i_ky ) 
+        self.Cperp = self.Cxy_op
+        self.Cpar = self.Cz_op
+        self.CparB = self.Cbz_op
     
-    def compute_Cz(self, fin):
+    def Cxy_op(self,fin):
+        """
+        Compute the perpendicular curvature operator Cxy as defined in equation (A13)
+        """
+        return self.Cxy * fin
+    
+    def Cz_op(self, fin):
         """
         Compute the parallel curvature operator C∥f as defined in equation (A14)
         """
+        return 0 #self.Cpar_factor * np.gradient(fin, axis=2)
 
-        return self.Cpar_factor * np.gradient(fin, axis=2)
-
-    def compute_CBz(self):
+    def Cbz_op(self, fin):
         """
         Compute the parallel magnetic curvature C∥^B as defined in equation (A15)
-        
-        Returns:
-        --------
-        ndarray
-            C∥^B operator array
         """
-        return 0.0
+        return self.Cz_op(self.hatB) * fin
+
+class ZPinchGeometry(Geometry):
+    zbc = 'periodic'
+    def compute_metrics(self):
+        # In Z-pinch, metrics are simpler (cartesian)
+        R0 = getattr(self.params, 'R0', 1.0)
+        # In Z-pinch, metrics are uniform in x,y at each z
+        for iz in range(self.nz):
+            self.g_xx[:, :, iz] = 1.0
+            self.g_yy[:, :, iz] = 1.0
+            self.g_zz[:, :, iz] = 1.0/R0**2
+            self.jacobian[:, :, iz] = R0**2
+            self.hatB[:, :, iz] = 1.0
+            self.dlnBdx[:, :, iz] = 0.0
+            self.dlnBdy[:, :, iz] = 0.0
+            self.dlnBdz[:, :, iz] = 0.0
 
 class SAlphaGeometry(Geometry):
     zbc = 'twist_and_shift'
     def compute_metrics(self):
-        """
-        Compute metric coefficients for s-alpha geometry
-        
-        Returns:
-        --------
-        dict
-            Dictionary containing the metric tensor components
-        """
         # Extract parameters
         shear = getattr(self.params, 'shear', 0.0)
         alpha_MHD = getattr(self.params, 'alpha_MHD', 0.0)
@@ -168,43 +166,16 @@ class SAlphaGeometry(Geometry):
         
         # Compute metric components at each z location
         for iz, zz in enumerate(self.z):
-            # Compute sheared metric components
-            g_xy_z = shear * zz - alpha_MHD * np.sin(zz)
-            g_yy_z = 1 + (shear * zz - alpha_MHD * np.sin(zz))**2
-            
-            # Jacobian and B field
-            self.jacobian[iz] = q0 * (1 + eps * np.cos(zz))
-            self.hatB[iz] = 1 / (1 + eps * np.cos(zz))
-            self.dlnBdz[iz] = eps * np.sin(zz) * self.hatB[iz]**2
-            
-            # For s-alpha geometry, the metrics are uniform in x,y at each z
-            for ikx in range(self.nkx):
-                for iky in range(self.nky):
-                    self.g_xy[ikx, iky] = g_xy_z
-                    self.g_yy[ikx, iky] = g_yy_z
+            self.g_xx[:, :, iz] = 1
+            self.g_yy[:, :, iz] = 1 + (shear * zz)**2
+            self.g_xy[:, :, iz] = shear * zz
+            self.g_yz[:, :, iz] = 1 / eps
+            self.g_zz[:, :, iz] = 1 / eps**2
 
-class ZPinchGeometry(Geometry):
-    zbc = 'periodic'
-    def compute_metrics(self):
-        """
-        Compute metric coefficients for Z-pinch geometry
-        
-        Returns:
-        --------
-        dict
-            Dictionary containing the metric tensor components
-        """
-        # In Z-pinch, metrics are simpler (cartesian)
-        R0 = getattr(self.params, 'R0', 1.0)
-        # In Z-pinch, metrics are uniform in x,y at each z
-        for iz in range(self.nz):
-            self.g_xx[:, :, iz] = 1.0
-            self.g_yy[:, :, iz] = 1.0
-            self.g_zz[:, :, iz] = 1.0/R0**2
-
-        # Compute Jacobian and B field
-        self.jacobian = R0**2
-        self.hatB = np.ones((self.nkx, self.nky, self.nz))
-        self.dlnBdx = np.zeros((self.nkx, self.nky, self.nz))
-        self.dlnBdy = np.zeros((self.nkx, self.nky, self.nz))
-        self.dlnBdz = np.zeros((self.nkx, self.nky, self.nz))
+            hatB = 1 / (1 + eps * np.cos(zz))
+            self.hatB[:, :, iz] = hatB
+            self.jacobian[:, :, iz] = q0/hatB
+            
+            self.dlnBdx[:, :, iz] = -np.cos(zz) * hatB**2
+            self.dlnBdy[:, :, iz] = 0
+            self.dlnBdz[:, :, iz] = eps * np.sin(zz) * hatB**2

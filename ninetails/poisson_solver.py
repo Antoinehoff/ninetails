@@ -1,5 +1,6 @@
 # poisson_solver.py
 import numpy as np
+from .tools import simpson_integral as tools_integral
 
 class PoissonSolver:
     def __init__(self, geometry):
@@ -19,11 +20,13 @@ class PoissonSolver:
         self.nkx = geometry.nkx
         self.nky = geometry.nky
         self.nz = geometry.nz
+        self.dz = (self.z[-1] - self.z[0]) / self.nz if self.nz > 1 else 1
         
         # For quick access
-        self.kperp2 = geometry.kperp2
-        self.l_perp = geometry.l_perp
         self.jacobian = geometry.jacobian
+        self.taulperp = self.params.tau * geometry.l_perp
+        self.coeff = 1 - 2 * (geometry.l_perp - self.params.tau * geometry.l_perp**2)
+        self.inv_jacobian_integral = 1.0/tools_integral(self.jacobian, self.dz, axis=-1)
         
     def flux_surf_avg(self, phi):
         """
@@ -42,37 +45,31 @@ class PoissonSolver:
         """
         # Extract the k_y = 0 components
         phi_ky0 = phi[:, 0, :]
-        
+
+        phi_avg = np.zeros_like(phi)
+        phi_avg[:, 0, :] = phi_ky0
+
         # Compute the integrand J_xyz * phi
-        integrand = self.jacobian * phi_ky0
+        integrand = self.jacobian * phi_avg
         
         # Compute the flux surface average by integrating over z
         # and normalizing by the integral of the Jacobian
-        dz = (self.z[-1] - self.z[0]) / self.nz if self.nz > 1 else 1
-        integral = np.sum(integrand, axis=1) * dz
-        jacobian_integral = np.sum(self.jacobian) * dz
-        
+        integral = tools_integral(integrand, self.dz, axis=-1)
+
         # Compute the flux surface average
-        phi_avg = integral / jacobian_integral
-        
-        # Create an array of the same shape as phi that contains the flux surface average
-        # but only for k_y = 0 modes
-        phi_avg_full = np.zeros_like(phi)
-        phi_avg_full[:, 0, :] = phi_avg[:, np.newaxis]
-        
-        return phi_avg_full
+        phi_avg = self.inv_jacobian_integral * integral
+
+        return phi_avg
     
     def solve(self, y):
         """
         Solve the quasineutrality equation:
-        (1 - 2[l_perp - tau*l_perp^2])phi - <phi>_yz = n + tau*l_perp*(T_perp - n)
+        (1 - 2[l_perp - tau*l_perp^2])phi = <phi>_yz + n + tau*l_perp*(T_perp - n)
         """
-        # Compute the coefficient of phi on the LHS
-        tau = self.params.tau
-        coeff = 1 - 2 * (self.l_perp - tau * self.l_perp**2)
+
         # Direct method to solve for phi
-        y[-1] = (y[0] + tau * self.l_perp * (y[3] - y[0]) + self.flux_surf_avg(y[-1]))
-        y[-1] /= coeff
+        y[-1] = self.flux_surf_avg(y[-1]) + y[0] + self.taulperp * (y[3] - y[0])
+        y[-1] /= self.coeff
         # Iterative method
         if False:
             # Initial guess for phi (ignoring flux surface average for now)
