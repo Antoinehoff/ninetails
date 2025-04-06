@@ -26,7 +26,10 @@ class PoissonSolver:
         self.jacobian = geometry.jacobian
         self.taulperp = self.params.tau * geometry.l_perp
         self.coeff = 1 - 2 * (geometry.l_perp - self.params.tau * geometry.l_perp**2)
-        self.inv_jacobian_integral = 1.0/tools_integral(self.jacobian, self.dz, axis=-1)
+        if self.nz > 1:
+            self.inv_jacobian_integral = 1.0/tools_integral(self.jacobian, self.dz, axis=-1)
+        else:
+            self.inv_jacobian_integral = 1.0
         
     def flux_surf_avg(self, phi):
         """

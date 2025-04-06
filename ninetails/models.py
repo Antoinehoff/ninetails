@@ -137,6 +137,25 @@ class HighOrderFluid:
         # Return the derivatives, including dphidt=0
         return self.dydt
     
+    def GM3(self, t, y):
+        """
+        Compute the right-hand side of the fluid equations using the 3GM framework.
+        """
+        # First update phi based on the Poisson equation
+        y = self.poisson_solver.solve(y)
+        
+        # Unpack the moments
+        n = y[0]
+        u = y[1]
+        T = y[2]
+        phi = y[-1]
+        
+        tau = self.p.tau
+        sqrt_tau = np.sqrt(tau)
+        
+        # Add linear terms (always included)        
+        # Equation (A1): density
+        self.dydt[0] = -2 * tau * self.Cperp(T_par)
         
     def GM4(self, t, y):
         """
@@ -149,20 +168,23 @@ class HighOrderFluid:
         N, u_par, T_par, T_perp, q_par, q_perp, _, _, _, phi = y
         tau = self.p.tau
         sqrt_tau = np.sqrt(tau)
-        
+        sqrt2 = np.sqrt(2)
+        n_na = N + (1/tau - self.l_perp + 0.5*self.l_perp**2*tau) * phi
+        Tperp_na = T_perp + (self.l_perp - self.l_perp**2*tau) * phi
+        #'''
         # Add linear terms (always included)        
         # Equation (A1): density
-        self.dydt[0] = -2 * tau * self.Cperp(T_par - T_perp + N) #
+        self.dydt[0] = -2 * tau * self.Cperp(T_par - Tperp_na + n_na) #
         self.dydt[0] -= sqrt_tau * (self.Cpar(u_par) - self.CparB(u_par)) #
         self.dydt[0] -= ((1 - self.l_perp) * self.iky * self.p.RN - self.l_perp * self.iky * self.p.RT) * phi #
         
         # Equation (A2): parallel velocity
-        self.dydt[1] = -sqrt_tau * self.Cpar(N) #
+        self.dydt[1] = -sqrt_tau * self.Cpar(n_na) #
         self.dydt[1] -= 4.0 * tau * self.Cperp(u_par) #
         self.dydt[1] -= 6.0 * tau * self.Cperp(q_par) #
         self.dydt[1] += 1.0 * tau * self.Cperp(q_perp) #
         self.dydt[1] -= 2.0 * sqrt_tau * (self.Cpar(T_par) - self.CparB(T_par)) #
-        self.dydt[1] += sqrt_tau * self.CparB(T_perp) #
+        self.dydt[1] += sqrt_tau * self.CparB(Tperp_na) #
         
         # Equation (A3): parallel temperature
         self.dydt[2] = -6.0 * tau * self.Cperp(T_par) #
@@ -170,11 +192,34 @@ class HighOrderFluid:
         self.dydt[2] -= 0.5 * (1 - self.l_perp) * self.iky * self.p.RT * phi #
         
         # Equation (A4): perpendicular temperature
+        self.dydt[3] = -4.0 * tau * self.Cperp(Tperp_na) #
+        self.dydt[3] -= sqrt_tau * self.CparB(u_par) #
+        self.dydt[3] -= (self.l_perp * self.iky * self.p.RN \
+                       + (3 * self.l_perp - 1) * self.iky * self.p.RT) * phi #
+        #'''
+        '''
+        # Thesis version (incomplete)
+        self.dydt[0] = -tau * self.Cperp(sqrt2 * T_par - T_perp + 2*N) #
+        self.dydt[0] -= sqrt_tau * (self.Cpar(u_par) - self.CparB(u_par)) #
+        self.dydt[0] -= (2*self.Cperp(phi) + self.p.RN * self.iky * phi) #
+        self.dydt[0] += tau * (3*self.Cperp(self.l_perp*phi) + (self.p.RT + self.p.RN) * self.iky * self.l_perp*phi) #
+        
+        self.dydt[1] = -sqrt_tau * self.Cpar(N) #
+        self.dydt[1] -= 4.0 * tau * self.Cperp(u_par) #
+        self.dydt[1] -= 6.0 * tau * self.Cperp(q_par) #
+        self.dydt[1] += 1.0 * tau * self.Cperp(q_perp) #
+        self.dydt[1] -= 2.0 * sqrt_tau * (self.Cpar(T_par) - self.CparB(T_par)) #
+        self.dydt[1] += sqrt_tau * self.CparB(T_perp) #
+        
+        self.dydt[2] = -6.0 * tau * self.Cperp(T_par) #
+        self.dydt[2] -= 2.0 * sqrt_tau * self.Cpar(u_par) #
+        self.dydt[2] -= 0.5 * (1 - self.l_perp) * self.iky * self.p.RT * phi #
+        
         self.dydt[3] = -4.0 * tau * self.Cperp(T_perp) #
         self.dydt[3] -= sqrt_tau * self.CparB(u_par) #
         self.dydt[3] -= (self.l_perp * self.iky * self.p.RN \
                        + (3 * self.l_perp - 1) * self.iky * self.p.RT) * phi #
-        
+        '''
         # Compute the nonlinear terms using Poisson brackets if enabled
         if self.nonlinear:
             # Prepare modified potentials for Poisson brackets
