@@ -1,3 +1,16 @@
+\documentclass{article}
+\usepackage{amsmath} % For align environment
+\usepackage{amssymb} % For additional math symbols
+\usepackage{amsfonts} % For math fonts
+\usepackage{geometry} % To adjust page layout
+\geometry{a4paper, margin=1in} % Setting page size and margins
+\usepackage{graphicx} % For including graphics
+\usepackage{hyperref} % For hyperlinks
+
+\newcommand{\dz}{\,\mathrm{d}z} % Define dz for integration
+
+\begin{document}
+
 \section{Fluid Model Equations}
 
 We present here explicitly the fluid equations derived in the gyro-moment framework:
@@ -37,7 +50,9 @@ k_\perp^2 &= g^{xx}k_x^2 + 2g^{xy}k_x k_y + g^{yy}k_y^2,
 
 and the magnetic curvature operators defined as
 \begin{align}
-\mathcal{C}_{xy} &= -\left[\partial_y \ln B + \frac{\Gamma_2}{\Gamma_1}\partial_z \ln B\right]\frac{\partial}{\partial x} + \left[\partial_x \ln B - \frac{\Gamma_3}{\Gamma_1}\partial_z \ln B\right]\frac{\partial}{\partial y},\\
-\mathcal{C}_\parallel &= \frac{R_0}{J_{xyz}\hat{B}}\frac{\partial}{\partial z},\\
+\mathcal{C}_\parallel^{B} &= \mathcal{C}_\parallel\ln B.
+\end{align}
+
+\end{document}
 \mathcal{C}_\parallel^{B} &= \mathcal{C}_\parallel\ln B.
 \end{align}
