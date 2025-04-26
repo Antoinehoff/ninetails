@@ -7,11 +7,98 @@
 \usepackage{graphicx} % For including graphics
 \usepackage{hyperref} % For hyperlinks
 
-\newcommand{\dz}{\,\mathrm{d}z} % Define dz for integration
+\input{my_cmd.tex}
 
 \begin{document}
 
+\section{Gyro-Moment Equations}
+In the projection of the gyrokinetic Boltzmann equation onto the Hermite-Laguerre basis, the gyro-averaging operator $\hat J_0$ is written as the Bessel function of the first kind, which can be expressed in terms of Laguerre polynomials as
+\begin{equation}
+    \hat J_0\bigl(\sqrt{\lperp \wperp}\bigr)  =  \sum_{n=0}^\infty \kernel_i^n(\lperp)\,L_n(\wperp).
+\label{eq:bess_lag}
+\end{equation}
+Here, $\lperp = \tau\,k_\perp^2/2$ and $k_\perp^2 = g^{xx}k_x^2 \,+\,2\, g^{xy}k_xk_y \,+\, g^{yy}k_y^2$, while the functions
+\begin{equation}
+    \kernel_i^n(\lperp)  =  \frac{(\lperp)^n}{n!} \, e^{-\lperp}
+    \label{eq:kernel}
+\end{equation}
+serve as ``kernels'' that separate the configuration- and velocity-space dependences.  
+
+When one projects the local $\delta f$ GK Boltzmann equation onto the Hermite--Laguerre basis, one obtains the following set of GM equations:
+\begin{subequations}
+\begin{equation}
+    \label{eq:moment_hierarchy_app}
+    \ddt N_i^{pj}
+     + \mathcal S^{pj}
+     + \mathcal M_{\parallel }^{pj}
+     + \mathcal M_{\perp}^{pj}
+     + \mathcal D_{T}^{pj}
+     + \mathcal D_{N}^{pj}
+     = \mathcal C_i^{pj},
+   % \tag{\ref{eq:moment_hierarchy_app}}
+\end{equation}
+
+which writes explicitly as
+\begin{align}
+    % &\frac{\partial N_i^{pj}}{\partial t}
+    &\ddt N_i^{pj}
+    % Nonlinear ExB
+    +  \sum_{n=0}^{\infty}\pb{\kernel_i^n\phi}{\sum_{s=0}^{n+j}d_{njs} N_i^{ps}}\label{eq:exbdrift}\\
+    % Trapping/mirror
+    & +\sqrt{\tau} \left(\Cpar\aleph_i^{p\pm1,j} - C_\parallel^B \left[(j+1)\aleph_i^{p\pm1,j}-j\aleph_i^{p\pm1,j-1}\right]\right)\label{eq:mirrforce}\\
+    % Landau damping
+    &+\sqrt{\tau}C_\parallel^{B}\sqrt{p}\left([2j+1]n_i^{p-1,j} -[j+1]n_i^{p-1,j+1} - j n_i^{p-1,j-1}\right)\label{eq:landdamp}\\
+    % Centrifugal drift
+    &+ \frac{\tau}{q_i} \Cper \squareparenthesis{\sqrt{(p+1)(p+2)} n_i^{p+2,j} + (2p+1)n_i^{pj} + \sqrt{p(p-1)}n_i^{p-2,j}}\label{eq:centforce}\\
+    % Perp. Magnetic gradient drift
+    &+ \frac{\tau}{q_i} \Cper \squareparenthesis{(2j+1)n_i^{pj} - (j+1)n_i^{p,j+1}-jn_i^{p,j-1}}\label{eq:magperp}\\
+    % Diamagn. temperature grad.
+    &+R_T ik_y\left(\kernel_i^j\squareparenthesis{\frac{1}{\sqrt{2}}\delta_{p2} -\delta_{p0}}+ \squareparenthesis{(2j+1)\kernel_i^j-(j+1)\kernel_i^{j+1}-j\kernel_i^{j-1}}\delta_{p0}\right)\phi\label{eq:diatemp}\\
+    % Diamagn. density grad. + coll
+    &+R_N ik_y \kernel_a^j \phi\delta_{p0} = \mathcal C_{i}^{pj},
+    \label{eq:diadens}
+\end{align}
+with $\aleph_i^{p\pm1,j}=\sqrt{p+1} n_i^{p+1,j} + \sqrt{p} n_i^{p-1,j}$ and $n_i^{pj}=N_i^{pj}+q_i/\tau \kernel_i^j\phi\delta_{p0}$, the non-adiabatic GMs.
+We also introduce the parallel curvature operator $\Cpar = R_0/(J_{xyz}\hat B)\ddz$, $J_{xyz}$ being the Jacobian of the field-aligned coordinates and $\hat B$ the normalized magnetic field amplitude, the parallel magnetic curvature $C_\parallel^{B}=\Cpar\ln B$, the perpendicular curvature operator $\Cper$. 
+
+\end{subequations}
+In Eq.~\ref{eq:moment_hierarchy_app}, $\mathcal S^{pj}$ is the nonlinear  $E\times B$
+drift term (arising, for example, from the second term in Eq.~\ref{eq:exbdrift}),
+which in Fourier space is expressed via Poisson brackets $\pb{\cdot}{\cdot}$ 
+and the convolution of Laguerre polynomials $L_nL_j=\sum_{n=0}^{n+j}d_{njs}L_s$. 
+The operator $\mathcal M_{\parallel}^{pj}$ includes trapping effects 
+(Eq.~\ref{eq:mirrforce}) and Landau damping (Eq.~\ref{eq:landdamp}), 
+while $\mathcal M_{\perp}^{pj}$ represents magnetic centrifugal effects (Eq.~\ref{eq:centforce}) 
+and perpendicular gradient terms (Eq.~\ref{eq:magperp}). 
+Finally, $\mathcal C_i^{pj}$ denotes the projection of the ion--ion collision operator (see below).  
+\par
+When considering an adiabatic electron response, the GM equations are closed by the quasineutrality relation,
+\begin{equation}
+     \Bigl(1 + \frac{q_i^2}{\tau}\bigl[1-\!\!\sum_{n=0}^{\infty}\bigl(\kernel_{i}^n\bigr)^2\bigr]\Bigr)\,\phi  - \bigl\langle \phi \bigr\rangle_{y z} 
+      =  q_i\,\sum_{n=0}^{\infty}\kernel_{i}^n\, N_i^{0n}.
+    \label{ch5_eq:poisson_moments_adiabe}
+\end{equation}
+
+\subsection{p=0, j=0}
+\[
+d_T N_i^{0,0}  + \sqrt{\tau} \left( \hat{C}_{\parallel} - C^B_{\parallel} \right) n_i^{1,0}
++ \frac{\tau}{q_i} \hat{C}_{\perp} \left( \sqrt{2} n_i^{2,0} + 2 n_i^{0,0} - n_i^{0,1} \right)
++  \left( \kernel_i^0 R_N - [\kernel_i^0 + \kernel_i^1] R_T \right) i k_y  \phi = 0
+\]
+
+
 \section{Fluid Model Equations}
+
+Consider a single-charge ion species ($q_i=1$). One can expand the kernel functions $\kernel_n$ [Eq.~\eqref{eq:kernel}] for small $\tau$, namely
+\begin{align}
+    \kernel_0  &=  1  - \lperp\,\tau 
+                  + \tfrac12\,\lperp^2\,\tau^2  + \order{\tau^3},\\
+    \kernel_1  &=  \lperp\,\tau 
+                  - \lperp^2\,\tau^2 
+                  + \order{\tau^3},\\    
+    \kernel_2  &=  \tfrac12\,\lperp^2\,\tau^2  + \order{\tau^3}.
+\end{align}
+These expansions assume $\lperp\,\tau \lesssim 1$ (typical of the high-$T_e$ regime).  
 
 We present here explicitly the fluid equations derived in the gyro-moment framework:
 
@@ -54,5 +141,3 @@ and the magnetic curvature operators defined as
 \end{align}
 
 \end{document}
-\mathcal{C}_\parallel^{B} &= \mathcal{C}_\parallel\ln B.
-\end{align}
