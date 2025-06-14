@@ -37,6 +37,9 @@ class Geometry:
         self.nkx = len(kx)
         self.nky = len(ky)
         self.nz = len(z)
+
+        self.ikx0 = np.argmin(np.abs(kx))
+        self.iky0 = np.argmin(np.abs(ky))
         
         # Initialize arrays
         self.g_xx = np.zeros((self.nkx, self.nky, self.nz))
@@ -59,7 +62,7 @@ class Geometry:
         # Compute metric coefficients
         self.compute_metrics()
         
-        # Compute k_perp^2 and l_perp
+        # Compute k_perp^2 and lperp
         self.compute_kperp_and_lperp()
         
         # Compute curvature operators
@@ -79,7 +82,7 @@ class Geometry:
     
     def compute_kperp_and_lperp(self):
         """
-        Compute k_perp^2 and l_perp based on the metric coefficients
+        Compute k_perp^2 and lperp based on the metric coefficients
         """
         kx_2d, ky_2d = np.meshgrid(self.kx, self.ky, indexing='ij')
         
@@ -91,8 +94,18 @@ class Geometry:
                       2 * self.g_xy * kx_3d * ky_3d + 
                       self.g_yy * ky_3d**2)
         
-        # Compute l_perp as defined in equation (A11)
-        self.l_perp = 0.5 * self.params.tau * self.kperp2
+        # Compute lperp as defined in equation (A11)
+        self.lperp = 0.5 * self.params.tau * self.kperp2
+
+        # Compute the first kernels
+        self.K0 = 1 - self.lperp + 0.5 * self.lperp**2
+        self.K1 = self.lperp - self.lperp**2
+        self.K2 = 0.5*self.lperp**2
+
+        # Or get the analytic expression for the kernels
+        #self.K0 = np.exp(-self.lperp)
+        #self.K1 = self.lperp * np.exp(-self.lperp)
+        #self.K2 = 0.5 * self.lperp**2 * np.exp(-self.lperp)
     
     def get_curvature_operators(self):
         """
@@ -116,7 +129,7 @@ class Geometry:
         G31 = Gamma3/Gamma1
 
         self.Cxy = (-(self.dlnBdy + G21 * self.dlnBdz) * i_kx \
-                      +(self.dlnBdx - G31 * self.dlnBdz) * i_ky ) 
+                    +(self.dlnBdx - G31 * self.dlnBdz) * i_ky ) 
         self.Cperp = self.Cxy_op
         self.Cpar = self.Cz_op
         self.CparB = self.Cbz_op
@@ -151,7 +164,7 @@ class ZPinchGeometry(Geometry):
             self.g_zz[:, :, iz] = 1.0/R0**2
             self.jacobian[:, :, iz] = R0**2
             self.hatB[:, :, iz] = 1.0
-            self.dlnBdx[:, :, iz] = 0.0
+            self.dlnBdx[:, :, iz] = -1.0
             self.dlnBdy[:, :, iz] = 0.0
             self.dlnBdz[:, :, iz] = 0.0
 
