@@ -23,7 +23,7 @@ def GM4(model, t, y):
     # Equation (A1): density (p=0, j=0)
     model.dydt[0]  = +sqrt_tau * (model.Cpar(n10) - model.CparB(n10))
     model.dydt[0] += -tau * model.Cperp(2*n00 + sqrt2*n20 - n01) 
-    model.dydt[0] += +model.K0 * model.p.RT * model.iky * phi 
+    model.dydt[0] += +model.K1 * model.p.RT * model.iky * phi 
     model.dydt[0] += -model.K0 * model.p.RN * model.iky * phi
     model.dydt[0] += -2./3. * model.p.nu * model.lperp * (5*n00 + sqrt2 * n20)
     model.dydt[0] += -model.p.muHD * model.kperp2 * y[0]
