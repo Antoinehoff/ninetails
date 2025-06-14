@@ -53,7 +53,8 @@ which writes explicitly as
     % Perp. Magnetic gradient drift
     &+ \frac{\tau}{q_i} \Cper \squareparenthesis{(2j+1)n_i^{pj} - (j+1)n_i^{p,j+1}-jn_i^{p,j-1}}\label{eq:magperp}\\
     % Diamagn. temperature grad.
-    &+R_T ik_y\left(\kernel_i^j\squareparenthesis{\frac{1}{\sqrt{2}}\delta_{p2} -\delta_{p0}}+ \squareparenthesis{(2j+1)\kernel_i^j-(j+1)\kernel_i^{j+1}-j\kernel_i^{j-1}}\delta_{p0}\right)\phi\label{eq:diatemp}\\
+    % &+R_T ik_y\left(\kernel_i^j\squareparenthesis{\frac{1}{\sqrt{2}}\delta_{p2} -\delta_{p0}}+ \squareparenthesis{(2j+1)\kernel_i^j-(j+1)\kernel_i^{j+1}-j\kernel_i^{j-1}}\delta_{p0}\right)\phi\label{eq:diatemp}\\
+    &+R_T ik_y\left(\frac{\sqrt{2}}{2}\kernel_i^j\delta_{p2} + \squareparenthesis{2j\kernel_i^j-(j+1)\kernel_i^{j+1}-j\kernel_i^{j-1}}\delta_{p0}\right)\phi\label{eq:diatemp}\\
     % Diamagn. density grad. + coll
     &+R_N ik_y \kernel_a^j \phi\delta_{p0} = \mathcal C_{i}^{pj},
     \label{eq:diadens}
@@ -79,25 +80,53 @@ When considering an adiabatic electron response, the GM equations are closed by 
     \label{ch5_eq:poisson_moments_adiabe}
 \end{equation}
 
-\subsection{p=0, j=0}
-\[
-d_T N_i^{0,0}  + \sqrt{\tau} \left( \hat{C}_{\parallel} - C^B_{\parallel} \right) n_i^{1,0}
-+ \frac{\tau}{q_i} \hat{C}_{\perp} \left( \sqrt{2} n_i^{2,0} + 2 n_i^{0,0} - n_i^{0,1} \right)
-+  \left( \kernel_i^0 R_N - [\kernel_i^0 + \kernel_i^1] R_T \right) i k_y  \phi = 0
-\]
+\subsection{A few moment equations}
+The first moment equation, $N_i^{00}$, is the continuity equation for the gyro-density $n_i$, which is given by
+\begin{align}
+\label{eq:moment_0}
+d_T N_i^{0,0}  &= \sqrt{\tau} \left( \hat{C}_{\parallel} - C^B_{\parallel} \right) n_i^{10}
+- \frac{\tau}{q_i} \hat{C}_{\perp} \left(2 n_i^{00} + \sqrt{2} n_i^{20} - n_i^{01} \right)
++  \kernel_i^0 \left(  R_T - R_N \right) i k_y  \phi.
+\end{align}
 
+The second moment equation, $N_i^{10}$, is the parallel momentum equation for the gyro-momentum $u_i$, which is given by
+\begin{align}
+\label{eq:moment_1}
+d_t N_i^{10} &= \sqrt{\tau} \hat{C}_{\parallel} \left( n_i^{00} + \sqrt{2} n_i^{20} \right) 
+    - \sqrt{\tau} C^B_{\parallel} \left( \sqrt{2} n_i^{20} + n_i^{01} \right)
+    + \frac{\tau}{q_i} \hat{C}_{\perp} \left( 4 n_i^{10} + \sqrt{6} n_i^{30} - n_i^{11} \right)
+\end{align}
+
+The third moment equation, $N_i^{20}$, is the parallel temperature equation, which is given by
+\begin{align}
+\label{eq:moment_2}
+d_t N_i^{20} &= \sqrt{\tau} \hat{C}_{\parallel} \left( \sqrt{2}n_i^{10} + \sqrt{3} n_i^{30} \right) 
+    - \sqrt{\tau} C^B_{\parallel} \left( \sqrt{3}n_i^{30} + \sqrt{2} n_i^{11} \right) \nonumber\\
+    &+ \frac{\tau}{q_i} \hat{C}_{\perp} \left( 6 n_i^{20} + \sqrt{2} n_i^{00} + \sqrt{12} n_i^{40} - n_i^{21} \right) 
+    - \frac{\sqrt{2}}{2} \kernel_i^0  R_T  i k_y \phi.
+\end{align}
+
+The fourth moment equation, $N_i^{01}$, is the perpendicular temperature equation, which is given by
+\begin{align}
+\label{eq:moment_3}
+d_t N_i^{01} &= \sqrt{\tau} \hat{C}_{\parallel} n_i^{11} 
+    - \sqrt{\tau} C^B_{\parallel} \left( 2n_i^{02} + 2 n_i^{11} \right)
+    + \frac{\tau}{q_i} \hat{C}_{\perp} \left( 4 n_i^{01} - n_i^{00} + \sqrt{2} n_i^{21} - 2 n_i^{02} \right) \nonumber \\
+    &- \left([2\kernel_i^1 - \kernel_i^0 - 2\kernel_i^2]R_T + \kernel_i^1 R_N \right) i k_y \phi.
+\end{align}
 
 \section{Fluid Model Equations}
 
 Consider a single-charge ion species ($q_i=1$). One can expand the kernel functions $\kernel_n$ [Eq.~\eqref{eq:kernel}] for small $\tau$, namely
 \begin{align}
-    \kernel_0  &=  1  - \lperp\,\tau 
-                  + \tfrac12\,\lperp^2\,\tau^2  + \order{\tau^3},\\
-    \kernel_1  &=  \lperp\,\tau 
-                  - \lperp^2\,\tau^2 
+    \kernel_0  &=  1  - \lperp
+                  + \tfrac12\,\lperp^2 + \order{\tau^3},\\
+    \kernel_1  &=  \lperp
+                  - \lperp^2
                   + \order{\tau^3},\\    
-    \kernel_2  &=  \tfrac12\,\lperp^2\,\tau^2  + \order{\tau^3}.
+    \kernel_2  &=  \tfrac12\,\lperp^2  + \order{\tau^3},
 \end{align}
+with $\lperp = \tau k_\perp^2/2$.
 These expansions assume $\lperp\,\tau \lesssim 1$ (typical of the high-$T_e$ regime).  
 
 We present here explicitly the fluid equations derived in the gyro-moment framework:
@@ -139,5 +168,129 @@ and the magnetic curvature operators defined as
 \begin{align}
 \mathcal{C}_\parallel^{B} &= \mathcal{C}_\parallel\ln B.
 \end{align}
+
+\subsubsection*{Curvature operators}
+The perpendicular curvature operator $\mathcal{C}_\perp$ is defined as
+\begin{align}
+\mathcal{C}_\perp &=
+\end{align}
+
+The parallel curvature operator $\mathcal{C}_\parallel$ is defined as
+\begin{align}
+\mathcal{C}_\parallel &=
+\end{align}
+
+\newpage
+\appendix
+\section{Moment Coupling Tables}
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{c|ccccc}
+    $j+1$ & $0$ & $-\sqrt{p}(j+1)\CparB$ & $0$ & $0$ & $0$ \\
+    & & & & & \\
+    $j$   & $0$ & $\sqrt{p}(\Cpar + j \CparB)$ & $0$ & $\sqrt{p+1}(\Cpar - [j+1]\CparB)$ & $0$ \\
+    & & & & & \\
+    $j-1 $& $0$ & $0$ & $0$ & $\sqrt{p+1}j\CparB$ & $0$ \\
+    & & & & & \\
+    \hline
+          & $p-2$ & $p-1$ & $p$ & $p+1$ & $p+2$
+    \end{tabular}
+    \caption{Moment coupling table of the parallel magnetic terms \eqref{eq:mirrforce} and \eqref{eq:landdamp}.}
+    \label{tab:moment_coupling_parallel}
+    \end{table}
+    
+    \begin{table}[h]
+    \centering
+    \begin{tabular}{c|ccccc}
+    $j+1$ & $0$ & $0$ & $-(j+1)\tau\Cper$ & $0$ & $0$ \\
+    & & & & & \\
+    $j$   & $\sqrt{p(p-1)}\tau\Cper$ & $0$ & $2(p+j+1)\tau\Cper$ & $0$ & $\sqrt{(p+1)(p+2)}\tau\Cper$ \\
+    & & & & & \\
+    $j-1 $& $0$ & $0$ & $-j\tau\Cper$ & $0$ & $0$ \\
+    & & & & & \\
+    \hline
+          & $p-2$ & $p-1$ & $p$ & $p+1$ & $p+2$
+    \end{tabular}
+    \caption{Moment coupling table of the perpendicular magnetic terms \eqref{eq:centforce} and \eqref{eq:magperp}.}
+    \label{tab:moment_coupling_perpendicular}
+    \end{table}
+    
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{c|ccccc}
+        $j+1$ & $0$ & $-\sqrt{p}(j+1)\CparB$ & $-(j+1)\Cper$ & $0$ & $0$ \\
+        & & & & & \\
+        $j$   & $\sqrt{p(p-1)}\Cper$ & $\sqrt{p}(\Cpar + j \CparB)$ & $2(p+j+1)\Cper$ & $\sqrt{p+1}(\Cpar - [j+1]\CparB)$ & $\sqrt{(p+1)(p+2)}\Cper$ \\
+        & & & & & \\
+        $j-1 $& $0$ & $0$ & $-j\Cper$ & $\sqrt{p+1}j\CparB$ & $0$ \\
+        & & & & & \\
+        \hline
+              & $p-2$ & $p-1$ & $p$ & $p+1$ & $p+2$
+        \end{tabular}
+        \caption{Combination of the moment coupling tables \ref{tab:moment_coupling_parallel} and \ref{tab:moment_coupling_perpendicular}.
+        We hide the $\tau$ and $\sqrt{\tau}$ factors for clarity.}
+        \label{tab:moment_coupling_all}
+    \end{table}
+    
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{c|ccccc}
+        $j+1$ & $0$ & $0$ & $-\Cper$ & $0$ & $0$ \\
+        & & & & & \\
+        $j$   & $0$ & $0$ & $2\Cper$ & $(\Cpar - \CparB)$ & $\sqrt{2}\Cper$ \\
+        & & & & & \\
+        $j-1 $& $0$ & $0$ & $0$ & $0$ & $0$ \\
+        & & & & & \\
+        \hline
+              & $p-2$ & $p-1$ & $p$ & $p+1$ & $p+2$
+        \end{tabular}
+        \caption{$p=0, j=0$.}
+    \end{table}
+    
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{c|ccccc}
+            $j+1$ & $0$ & $-\CparB$ & $-\Cper$ & $0$ & $0$ \\
+            & & & & & \\
+            $j$   & $0$ & $\Cpar$ & $4\Cper$ & $\sqrt{2}(\Cpar - \CparB)$ & $\sqrt{6}\Cper$ \\
+            & & & & & \\
+            $j-1 $& $0$ & $0$ & $0$ & $0$ & $0$ \\
+            & & & & & \\
+            \hline
+                  & $p-2$ & $p-1$ & $p$ & $p+1$ & $p+2$
+            \end{tabular}
+        \caption{$p=1, j=0$.}
+    \end{table}
+    
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{c|ccccc}
+        $j+1$ & $0$ & $-\sqrt{2}\CparB$ & $-\Cper$ & $0$ & $0$ \\
+        & & & & & \\
+        $j$   & $\sqrt{2}\Cper$ & $\sqrt{2}\Cpar$ & $6\Cper$ & $\sqrt{3}(\Cpar - \CparB)$ & $\sqrt{12}\Cper$ \\
+        & & & & & \\
+        $j-1 $& $0$ & $0$ & $0$ & $0$ & $0$ \\
+        & & & & & \\
+        \hline
+              & $p-2$ & $p-1$ & $p$ & $p+1$ & $p+2$
+        \end{tabular}
+        \caption{$p=2, j=0$.}
+    \end{table}
+    
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{c|ccccc}
+        $j+1$ & $0$ & $0$ & $-2\Cper$ & $0$ & $0$ \\
+        & & & & & \\
+        $j$   & $0$ & $0$ & $4\Cper$ & $(\Cpar - 2\CparB)$ & $\sqrt{2}\Cper$ \\
+        & & & & & \\
+        $j-1 $& $0$ & $0$ & $-\Cper$ & $\CparB$ & $0$ \\
+        & & & & & \\
+        \hline
+              & $p-2$ & $p-1$ & $p$ & $p+1$ & $p+2$
+        \end{tabular}
+        \caption{$p=0$, $j=1$.}
+    \end{table}
 
 \end{document}

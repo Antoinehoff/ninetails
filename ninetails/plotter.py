@@ -154,7 +154,7 @@ class Plotter:
         if cbar: plt.colorbar(im, ax=ax, label=moment_name)
         if clim: im.set_clim(clim)
         
-        ax.set_title(f'{moment_name} at t = {time:.2f}')
+        ax.set_title(f'{moment_name} at t = {time:.2f}, amp: {np.max(np.abs(field[:, :, z_idx])):.2e}')
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         

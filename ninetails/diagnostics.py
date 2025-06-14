@@ -34,17 +34,26 @@ class Diagnostics:
 
         self.mn2idx = {
             'dens': 0,
+            'N00' : 0,
             'n': 0,
             'N': 0,
             'upar': 1,
+            'N10' : 1,
             'zeta': 1,
             'Tpar': 2,
+            'N20' : 2,
             'Tperp': 3,
+            'N01' : 3,
             'qpar': 4,
+            'N30' : 4,
             'qperp': 5,
+            'N11' : 5,
             'Pparpar': 6,
+            'N40' : 6,
             'Pperppar': 7,
+            'N21' : 7,
             'Pperpperp': 8,
+            'N02' : 8,
             'phi': -1
         }
 
