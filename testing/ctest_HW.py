@@ -50,7 +50,7 @@ for iz in range(nz):
     y0[0][:, :, iz] = np.fft.rfft2(N_real[:, :, iz])
 
 # Initialize equation system with the geometry
-equations = ntl.HighOrderFluid(config, geometry)
+equations = ntl.Model(config, geometry)
 
 # Run the solver
 RKscheme = ntl.Integrator(method='RK4', diagnostic=diagnostics, verbose=False)

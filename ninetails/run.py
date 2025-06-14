@@ -1,7 +1,7 @@
 # main.py
 import numpy as np
 import os, sys
-from .models import HighOrderFluid
+from .model import Model
 from .geometry import create_geometry
 from .config import SimulationConfig
 from .diagnostics import Diagnostics
@@ -43,7 +43,7 @@ def run(config_file):
     geometry = create_geometry(kx, ky, z, phys_params, config.geometry_type)
     
     # Initialize equation system with the geometry
-    equations = HighOrderFluid(config, geometry)
+    equations = Model(config, geometry)
     
     # Set up time span and time points for output
     t_span = (0, num_params.max_time)
