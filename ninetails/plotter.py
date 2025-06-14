@@ -22,11 +22,8 @@ class Plotter:
         self.simulation = simulation
         self.figsize = figsize
         # Create output directory
-        if output_dir:
-            self.output_dir = output_dir
-            os.makedirs(self.output_dir, exist_ok=True)
-        else:
-            self.output_dir = None
+        self.output_dir = output_dir if output_dir else 'output'
+        os.makedirs(self.output_dir, exist_ok=True)
 
     def create_gif(self, moment_name, time_indices = [], z_idx=0, 
                    clim = [], moviename=[], cbar=False):
@@ -94,15 +91,14 @@ class Plotter:
         ax.set_title('Energy Evolution')
         ax.legend()
         
-        # Save the figure
         plt.tight_layout()
+        plt.show()
+        # Save the figure
         if self.simulation.config.output_dir:
             fig.savefig(f'{self.simulation.config.output_dir}/energy_evolution.png', dpi=150)
         if filename:
             fig.savefig(filename, dpi=150)
             plt.close(fig)
-        else:
-            plt.show()
         
     def growth_rates(self, moment_name='N', time_window=None, z_idx=0, filename=''):
         
@@ -114,7 +110,7 @@ class Plotter:
         
 
         # Create the growth rate plot
-        fig, ax = plt.subplots(figsize=(10, 8))
+        fig, ax = plt.subplots(figsize=self.figsize)
 
         kx = self.simulation.kgrids[0]
         ky = self.simulation.kgrids[1]
@@ -128,18 +124,17 @@ class Plotter:
         ax.set_ylabel('ky')
         ax.set_title(f'Linear Growth Rate Spectrum for {moment_name}')
         
-        # Save the figure
         plt.tight_layout()
+        plt.show()
+        # Save the figure
         if self.output_dir:
             fig.savefig(f'{self.output_dir}/{moment_name}_growth_rate_spectrum.png', dpi=150)
             plt.close(fig)
         if filename:
             fig.savefig(filename, dpi=150)
             plt.close(fig)
-        else:
-            plt.show()
  
-    def snapshot(self, moment_name='N', time_idx=0, z_idx=0, plane='xy', cbar=False, clim=[], filename=''):
+    def snapshot(self, moment_name='N', time_idx=-1, z_idx=0, plane='xy', cbar=False, clim=[], filename=''):
         # Extract the data
         time, field = self.simulation.diagnostics.get_moment_data(moment_name, time_idx)
         
@@ -158,13 +153,12 @@ class Plotter:
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         
-        # Save the figure
         plt.tight_layout()
+        plt.show()
+        # Save the figure
         if self.output_dir:
             fig.savefig(f'{self.output_dir}/{moment_name}_t{time_idx}.png', dpi=150)
             plt.close(fig)
         if filename:
             fig.savefig(filename, dpi=150)
             plt.close(fig)
-        else:
-            plt.show()

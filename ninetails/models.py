@@ -1,5 +1,6 @@
 # equations.py
 import numpy as np
+from scipy.special import factorial
 from .poisson_bracket import PoissonBracket
 from .poisson_solver import PoissonSolver
 
@@ -137,29 +138,9 @@ class HighOrderFluid:
         # Return the derivatives, including dphidt=0
         return self.dydt
     
-    def GM3(self, t, y):
-        """
-        Compute the right-hand side of the fluid equations using the 3GM framework.
-        """
-        # First update phi based on the Poisson equation
-        y = self.poisson_solver.solve(y)
-        
-        # Unpack the moments
-        n = y[0]
-        u = y[1]
-        T = y[2]
-        phi = y[-1]
-        
-        tau = self.p.tau
-        sqrt_tau = np.sqrt(tau)
-        
-        # Add linear terms (always included)        
-        # Equation (A1): density
-        self.dydt[0] = -2 * tau * self.Cperp(T_par)
-        
     def GM4(self, t, y):
         """
-        Compute the right-hand side of the fluid equations using the 9GM framework.
+        Compute the right-hand side of the fluid equations using the GM (2,1) equations.
         """
         # First update phi based on the Poisson equation
         y = self.poisson_solver.solve(y)
@@ -173,30 +154,8 @@ class HighOrderFluid:
         Tperp_na = T_perp + (self.l_perp - self.l_perp**2*tau) * phi
         #'''
         # Add linear terms (always included)        
-        # Equation (A1): density
-        self.dydt[0] = -2 * tau * self.Cperp(T_par - Tperp_na + n_na) #
-        self.dydt[0] -= sqrt_tau * (self.Cpar(u_par) - self.CparB(u_par)) #
-        self.dydt[0] -= ((1 - self.l_perp) * self.iky * self.p.RN - self.l_perp * self.iky * self.p.RT) * phi #
-        
-        # Equation (A2): parallel velocity
-        self.dydt[1] = -sqrt_tau * self.Cpar(n_na) #
-        self.dydt[1] -= 4.0 * tau * self.Cperp(u_par) #
-        self.dydt[1] -= 6.0 * tau * self.Cperp(q_par) #
-        self.dydt[1] += 1.0 * tau * self.Cperp(q_perp) #
-        self.dydt[1] -= 2.0 * sqrt_tau * (self.Cpar(T_par) - self.CparB(T_par)) #
-        self.dydt[1] += sqrt_tau * self.CparB(Tperp_na) #
-        
-        # Equation (A3): parallel temperature
-        self.dydt[2] = -6.0 * tau * self.Cperp(T_par) #
-        self.dydt[2] -= 2.0 * sqrt_tau * self.Cpar(u_par) #
-        self.dydt[2] -= 0.5 * (1 - self.l_perp) * self.iky * self.p.RT * phi #
-        
-        # Equation (A4): perpendicular temperature
-        self.dydt[3] = -4.0 * tau * self.Cperp(Tperp_na) #
-        self.dydt[3] -= sqrt_tau * self.CparB(u_par) #
-        self.dydt[3] -= (self.l_perp * self.iky * self.p.RN \
-                       + (3 * self.l_perp - 1) * self.iky * self.p.RT) * phi #
-        #'''
+        # curvature terms
+        self.dydt[0] = - self.Mperppj(0,0)
         '''
         # Thesis version (incomplete)
         self.dydt[0] = -tau * self.Cperp(sqrt2 * T_par - T_perp + 2*N) #
@@ -354,4 +313,65 @@ class HighOrderFluid:
         # Return the derivatives, including dphidt=0
         return np.array([dN_dt, du_par_dt, dT_par_dt, dT_perp_dt, dq_par_dt, dq_perp_dt, 
                 dP_parpar_dt, dP_perppar_dt, dP_perpperp_dt, np.zeros_like(phi)])
+        
+        
+    # Define the gyromoment hierarchy terms
+    def Mna(self,p,j):
+        # return the p,j non adiabatic moment
+        nadiab = 1.0/self.p.tau * self.kernel(j)*(self.y[-1]) if p == 0 \
+            else 0.0
+        if (p,j) == (0,0):
+            n = 0
+        if (p,j) == (1,0):
+            n = 1
+        if (p,j) == (2,0):
+            n = 2
+        if (p,j) == (0,1):
+            n = 3
+        if (p,j) == (1,1):
+            n = 4
+        if (p,j) == (4,0):
+            n = 5
+        if (p,j) == (2,1):
+            n = 6
+        if (p,j) == (0,2):
+            n = 7
+        if (p,j) == (5,0):
+            n = 8
+        if (p,j) == (3,1):
+            n = 9
+        return self.y[n] + nadiab
     
+    def Mparapj(self, p, j):
+        curlyNpm1j = np.sqrt(p+1,j) * self.Mna(p+1,j) + np.sqrt(p) * self.Mna(p-1,j)
+        curlyNpm1jm1 = np.sqrt(p+1,j-1) * self.Mna(p+1,j-1) + np.sqrt(p) * self.Mna(p-1,j-1)
+        # Here Cpar = sqrt(tau)/sigma/Jacobian/hatB ddz
+        return self.Cpar(curlyNpm1j) - self.CparB*((j+1) * curlyNpm1j - j * curlyNpm1jm1) \
+            + self.CparB * np.sqrt(p) * \
+                ((2*j+1) * self.Mna(p-1,j) - (j-1) * self.Mna(p-1,j+1) - j * self.Mna(p-1,j-1))
+        
+    def Mperppj(self, p, j):
+        
+        tau = self.p.tau
+        q = self.p.q
+        cpp2 = np.sqrt((p+1)*(p+2))
+        cp   = 2*p + 1
+        cpm2 = np.sqrt(p*(p-1))
+        cjp1 = (2*j + 1)
+        cj   = -(j+1)
+        cjm1 = -j
+                
+        return tau/q * (
+            self.Cperp(cpp2 * self.Mna(p+2,j) + cp * self.Mna(p,j) + cpm2 * self.Mna(p-2,j))
+            + self.Cperp(cjp1 * self.Mna(p,j+1) + cj * self.Mna(p,j) + cjm1 * self.Mna(p,j-1))
+        )
+        
+    def Dpj(self, p,j):
+        
+        if p == 0:
+            return self.p.RN * self.kernel(j) + self.p.RT * ( -self.kernel(j) + 
+                         ((2*j+1) * self.kernel(j) - (j+1) * self.kernel(j+1) - j*self.kernel(j-1))
+                         ) * self.iky * self.phi
+            
+    def kernel(self, j):
+        return self.l_perp**j * np.exp(-self.l_perp)/factorial(j)
