@@ -47,7 +47,11 @@ class HighOrderFluid:
         self.kperp2_pos = self.kperp2.copy()
         self.kperp2_pos[self.kperp2_pos == 0] = 1  # Avoid division by zero for poisson in HW
         
-        self.l_perp = geometry.l_perp
+        self.K0 = geometry.K0
+        self.K1 = geometry.K1
+        self.K2 = geometry.K2
+        self.lperp = geometry.lperp
+        self.kperp2 = geometry.kperp2
         self.Cperp = geometry.Cperp  # Perpendicular curvature
         self.Cpar = geometry.Cpar    # Parallel curvature
         self.CparB = geometry.CparB  # Parallel magnetic curvature
@@ -114,6 +118,7 @@ class HighOrderFluid:
         Compute the right-hand side of the modified Hasegawa-Wakatani equations.
         """
         
+        # First update phi based on the Poisson equation
         y[-1] = -y[1]/self.kperp2_pos
         y[-1][self.kperp2 == 0] = 0
         
@@ -136,26 +141,6 @@ class HighOrderFluid:
         
         # Return the derivatives, including dphidt=0
         return self.dydt
-    
-    def GM3(self, t, y):
-        """
-        Compute the right-hand side of the fluid equations using the 3GM framework.
-        """
-        # First update phi based on the Poisson equation
-        y = self.poisson_solver.solve(y)
-        
-        # Unpack the moments
-        n = y[0]
-        u = y[1]
-        T = y[2]
-        phi = y[-1]
-        
-        tau = self.p.tau
-        sqrt_tau = np.sqrt(tau)
-        
-        # Add linear terms (always included)        
-        # Equation (A1): density
-        self.dydt[0] = -2 * tau * self.Cperp(T_par)
         
     def GM4(self, t, y):
         """
@@ -165,80 +150,70 @@ class HighOrderFluid:
         y = self.poisson_solver.solve(y)
         
         # Unpack the moments
-        N, u_par, T_par, T_perp, q_par, q_perp, _, _, _, phi = y
+        N00, n10, n20, N01, n30, n11, n40, n21, N02, phi = y
         tau = self.p.tau
         sqrt_tau = np.sqrt(tau)
         sqrt2 = np.sqrt(2)
-        n_na = N + (1/tau - self.l_perp + 0.5*self.l_perp**2*tau) * phi
-        Tperp_na = T_perp + (self.l_perp - self.l_perp**2*tau) * phi
-        #'''
+        sqrt3 = np.sqrt(3)
+        sqrt6 = np.sqrt(6)
+        sqrt12 = np.sqrt(12)
+        n00 = N00 + self.K0/tau * phi
+        n01 = N01 + self.K1/tau * phi
+        n02 = N02 + self.K2/tau * phi
+
         # Add linear terms (always included)        
-        # Equation (A1): density
-        self.dydt[0] = -2 * tau * self.Cperp(T_par - Tperp_na + n_na) #
-        self.dydt[0] -= sqrt_tau * (self.Cpar(u_par) - self.CparB(u_par)) #
-        self.dydt[0] -= ((1 - self.l_perp) * self.iky * self.p.RN - self.l_perp * self.iky * self.p.RT) * phi #
+        # Equation (A1): density (p=0, j=0)
+        self.dydt[0]  = +sqrt_tau * (self.Cpar(n10) - self.CparB(n10))
+        self.dydt[0] += -tau * self.Cperp(2*n00 + sqrt2*n20 - n01) 
+        self.dydt[0] += +self.K1 * self.p.RT * self.iky * phi 
+        self.dydt[0] += -self.K0 * self.p.RN * self.iky * phi
+        self.dydt[0] += -self.p.muHD * self.kperp2 * y[0]
+        # self.dydt[0] += -2/3 * self.p.nu * self.lperp * (5*n00 + sqrt2 * n20)
         
-        # Equation (A2): parallel velocity
-        self.dydt[1] = -sqrt_tau * self.Cpar(n_na) #
-        self.dydt[1] -= 4.0 * tau * self.Cperp(u_par) #
-        self.dydt[1] -= 6.0 * tau * self.Cperp(q_par) #
-        self.dydt[1] += 1.0 * tau * self.Cperp(q_perp) #
-        self.dydt[1] -= 2.0 * sqrt_tau * (self.Cpar(T_par) - self.CparB(T_par)) #
-        self.dydt[1] += sqrt_tau * self.CparB(Tperp_na) #
+        # Equation (A2): parallel velocity (p=1, j=0)
+        self.dydt[1]  = +sqrt_tau * self.Cpar(n00 + sqrt2*n20)
+        self.dydt[1] += -sqrt_tau * self.CparB(sqrt2*n20 + n01)
+        self.dydt[1] += +tau * self.Cperp(4*n10 + sqrt6*n30 - n11)
+        self.dydt[1] += -self.p.muHD * self.kperp2 * y[1]
+
         
-        # Equation (A3): parallel temperature
-        self.dydt[2] = -6.0 * tau * self.Cperp(T_par) #
-        self.dydt[2] -= 2.0 * sqrt_tau * self.Cpar(u_par) #
-        self.dydt[2] -= 0.5 * (1 - self.l_perp) * self.iky * self.p.RT * phi #
-        
-        # Equation (A4): perpendicular temperature
-        self.dydt[3] = -4.0 * tau * self.Cperp(Tperp_na) #
-        self.dydt[3] -= sqrt_tau * self.CparB(u_par) #
-        self.dydt[3] -= (self.l_perp * self.iky * self.p.RN \
-                       + (3 * self.l_perp - 1) * self.iky * self.p.RT) * phi #
-        #'''
-        '''
-        # Thesis version (incomplete)
-        self.dydt[0] = -tau * self.Cperp(sqrt2 * T_par - T_perp + 2*N) #
-        self.dydt[0] -= sqrt_tau * (self.Cpar(u_par) - self.CparB(u_par)) #
-        self.dydt[0] -= (2*self.Cperp(phi) + self.p.RN * self.iky * phi) #
-        self.dydt[0] += tau * (3*self.Cperp(self.l_perp*phi) + (self.p.RT + self.p.RN) * self.iky * self.l_perp*phi) #
-        
-        self.dydt[1] = -sqrt_tau * self.Cpar(N) #
-        self.dydt[1] -= 4.0 * tau * self.Cperp(u_par) #
-        self.dydt[1] -= 6.0 * tau * self.Cperp(q_par) #
-        self.dydt[1] += 1.0 * tau * self.Cperp(q_perp) #
-        self.dydt[1] -= 2.0 * sqrt_tau * (self.Cpar(T_par) - self.CparB(T_par)) #
-        self.dydt[1] += sqrt_tau * self.CparB(T_perp) #
-        
-        self.dydt[2] = -6.0 * tau * self.Cperp(T_par) #
-        self.dydt[2] -= 2.0 * sqrt_tau * self.Cpar(u_par) #
-        self.dydt[2] -= 0.5 * (1 - self.l_perp) * self.iky * self.p.RT * phi #
-        
-        self.dydt[3] = -4.0 * tau * self.Cperp(T_perp) #
-        self.dydt[3] -= sqrt_tau * self.CparB(u_par) #
-        self.dydt[3] -= (self.l_perp * self.iky * self.p.RN \
-                       + (3 * self.l_perp - 1) * self.iky * self.p.RT) * phi #
-        '''
+        # Equation (A3): parallel temperature (p=2, j=0)
+        self.dydt[2]  = +sqrt_tau * self.Cpar(sqrt2*n10 + sqrt3*n30)
+        self.dydt[2] += -sqrt_tau * self.CparB(sqrt3*n30 + sqrt2*n11)
+        self.dydt[2] += +tau * self.Cperp(6*n20 + sqrt2*n00 + sqrt12*n40 - n21)
+        self.dydt[2] += -0.5 * sqrt2 * self.p.RT * self.iky * self.K0 * phi
+        self.dydt[2] += -self.p.muHD * self.kperp2 * y[2]
+        # self.dydt[2] += -2/3 * self.p.nu * (2*sqrt2*n00 + 2*n20 + sqrt2*n01)
+
+        # Equation (A4): perpendicular temperature (p=0, j=1)
+        self.dydt[3]  = +sqrt_tau * self.Cpar(n11)
+        self.dydt[3] += -sqrt_tau * self.CparB(2*n02 + 2*n11)
+        self.dydt[3] += +tau * self.Cperp(4*n01 - n00 + sqrt2*n21 - 2*n02)
+        self.dydt[3] += -self.p.RT * self.iky * (2*self.K1 - self.K0 - 2*self.K2) * phi
+        self.dydt[3] += -self.p.RN * self.iky * self.K1 * phi
+        self.dydt[3] += -2/3 * self.p.nu * (2*n00 + sqrt2*n20 + n01)
+        self.dydt[3] += -self.p.muHD * self.kperp2 * y[3]
+        # self.dydt[3] += -2/3 * self.p.nu * (2*n00 + sqrt2*n20 + n01)
+
         # Compute the nonlinear terms using Poisson brackets if enabled
         if self.nonlinear:
             # Prepare modified potentials for Poisson brackets
-            phi_mod1 = (1 - self.l_perp) * phi
-            phi_mod2 = self.l_perp * phi
+            K0phi = self.K0 * phi
+            K1phi = self.K1 * phi
 
             # Equation (A1): density
-            self.dydt[0] -= self.pb.compute(phi_mod1, N)
-            self.dydt[0] -= self.pb.compute(phi_mod2, T_perp)
+            self.dydt[0] -= self.pb.compute(K0phi, N00)
+            #self.dydt[0] -= self.pb.compute(K1phi, N01)
             
             # Equation (A2): parallel velocity
-            self.dydt[1] -= self.pb.compute(phi_mod1, u_par)
+            self.dydt[1] -= self.pb.compute(K0phi, n10)
             
             # Equation (A3): parallel temperature
-            self.dydt[2] -= self.pb.compute(phi_mod1, T_par)
+            self.dydt[2] -= self.pb.compute(K0phi, n20)
             
             # Equation (A4): perpendicular temperature
-            self.dydt[3] -= self.pb.compute(phi_mod1, T_perp)  # Corrected with phi_mod3
-            self.dydt[3] += tau * self.pb.compute(phi_mod1, N)  # Corrected sign
+            self.dydt[3] -= self.pb.compute(K1phi, N01)
+            #self.dydt[3] -= tau * self.pb.compute(K1phi, N00)
         
         # Return the derivatives, including dphidt=0
         return self.dydt
@@ -271,7 +246,7 @@ class HighOrderFluid:
         # Equation (A1): density
         dN_dt = -2 * tau * self.Cperp(T_par - T_perp + N) #
         dN_dt -= sqrt_tau * (self.Cpar(u_par) - self.CparB(u_par)) #
-        dN_dt -= ((1 - self.l_perp) * self.iky * self.p.RN - self.l_perp * self.iky * self.p.RT) * phi #
+        dN_dt -= ((1 - self.lperp) * self.iky * self.p.RN - self.lperp * self.iky * self.p.RT) * phi #
         
         # Equation (A2): parallel velocity
         du_par_dt = -sqrt_tau * self.Cpar(N) #
@@ -288,15 +263,15 @@ class HighOrderFluid:
         dT_par_dt -= 3.0 * sqrt_tau * (self.Cpar(q_par) - self.CparB(q_par)) #
         dT_par_dt += 2.0 * sqrt_tau * self.CparB(q_perp) #
         dT_par_dt -= 2.0 * sqrt_tau * self.Cpar(u_par) #
-        dT_par_dt -= 0.5 * (1 - self.l_perp) * self.iky * self.p.RT * phi #
+        dT_par_dt -= 0.5 * (1 - self.lperp) * self.iky * self.p.RT * phi #
         
         # Equation (A4): perpendicular temperature
         dT_perp_dt = -4.0 * tau * self.Cperp(T_perp) #
         dT_perp_dt += 1.0 * tau * self.Cperp(N - 2 * P_parperp + 2 * P_perpperp) #
         dT_perp_dt -= sqrt_tau * (self.Cpar(q_perp) - 2 * self.CparB(q_perp)) #
         dT_perp_dt -= sqrt_tau * self.CparB(u_par) #
-        dT_perp_dt -= (self.l_perp * self.iky * self.p.RN \
-                       + (3 * self.l_perp - 1) * self.iky * self.p.RT) * phi #
+        dT_perp_dt -= (self.lperp * self.iky * self.p.RN \
+                       + (3 * self.lperp - 1) * self.iky * self.p.RT) * phi #
         
         # Equation (A5): parallel heat flux
         dq_par_dt =  2.0 * sqrt_tau * (self.CparB(P_parpar) - self.Cpar(P_parpar)) #
@@ -312,8 +287,8 @@ class HighOrderFluid:
         # Compute the nonlinear terms using Poisson brackets if enabled
         if self.nonlinear:
             # Prepare modified potentials for Poisson brackets
-            phi_mod1 = (1 - self.l_perp) * phi
-            phi_mod2 = self.l_perp * phi
+            phi_mod1 = (1 - self.lperp) * phi
+            phi_mod2 = self.lperp * phi
 
             # Equation (A1): density
             dN_dt -= self.pb.compute(phi_mod1, N)
