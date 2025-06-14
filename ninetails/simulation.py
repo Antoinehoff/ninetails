@@ -5,7 +5,7 @@ from .diagnostics import Diagnostics
 from .tools import get_grids
 from .geometry import create_geometry
 from .integrator import Integrator
-from .models import HighOrderFluid
+from .model import Model
 from .plotter import Plotter
 from .boundary_conditions import BoundaryConditions
 
@@ -124,7 +124,7 @@ class Simulation:
 
         self.verbose = False
 
-        self.equations = HighOrderFluid(self.config, self.geometry)
+        self.equations = Model(self.config, self.geometry)
         self.diagnostics = Diagnostics(self.config)
         self.RKscheme = Integrator(method='RK4', diagnostic=self.diagnostics, verbose=self.verbose)
         self.plotter = Plotter(self)

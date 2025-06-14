@@ -1,5 +1,6 @@
 physical:
   tau: 0.001
+  nu: 0.1
   RN: 1.0
   RT: 3500
   eps: 0.1
@@ -29,3 +30,4 @@ nframes: 50
 restart: false
 restart_frame: 0
 restart_file: null
+follow_frame: false

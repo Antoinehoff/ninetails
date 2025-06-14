@@ -8,6 +8,7 @@ from typing import Optional
 class PhysicalParams:
     # Core parameters
     tau: float = 0.001  # Temperature ratio (T_i/T_e)
+    nu: float = 0.1 # Collision frequency
     RN: float = 1.0  # Density gradient scale length
     RT: float = 3500  # Temperature gradient scale length
     

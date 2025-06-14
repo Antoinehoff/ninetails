@@ -79,7 +79,7 @@ class Plotter:
         total = self.simulation.diagnostics.integrated['Etot']
         
         # Create the plot
-        fig, ax = plt.subplots(figsize=self.figsize)
+        fig, ax = plt.subplots(figsize=self.figsize if hasattr(self, 'figsize') else (6, 4))
         
         ax.plot(times, kinetic, 'r-', label='Kinetic')
         ax.plot(times, thermal, 'g-', label='Thermal')
@@ -142,14 +142,14 @@ class Plotter:
             field = PostProcessor.to_real_space(self.simulation,field)
 
         # Create the plot
-        fig, ax = plt.subplots(figsize=self.figsize)
+        fig, ax = plt.subplots(figsize=self.figsize if hasattr(self, 'figsize') else (6, 4))
         
         # Plot the data
         im = ax.imshow(field[:, :, z_idx].T, origin='lower', cmap='RdBu')
         if cbar: plt.colorbar(im, ax=ax, label=moment_name)
         if clim: im.set_clim(clim)
         
-        ax.set_title(f'{moment_name} at t = {time:.2f}')
+        ax.set_title(f'{moment_name} at t = {time:.2f}, amp: {np.max(np.abs(field[:, :, z_idx])):.2e}')
         ax.set_xlabel('x')
         ax.set_ylabel('y')
         

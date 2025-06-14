@@ -2,11 +2,10 @@
 import numpy as np
 import os
 from scipy.integrate import solve_ivp
-from models import HighOrderFluid
 from geometry import create_geometry
 from config import SimulationConfig
 from diagnostics import Diagnostics
-from post_processing import PostProcessor
+from postprocessor import PostProcessor
 
 def main():
     # Load configuration from YAML file

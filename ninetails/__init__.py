@@ -5,7 +5,7 @@ from .fastfouriertransform import FastFourierTransform
 from .analyze import analyze
 from .config import SimulationConfig
 from .postprocessor import PostProcessor
-from .models import HighOrderFluid
+from .model import Model
 from .tools import get_grids
 from .geometry import create_geometry
 from .diagnostics import Diagnostics
@@ -20,7 +20,7 @@ __all__ = [
     'analyze',
     'SimulationConfig',
     'PostProcessor',
-    'HighOrderFluid',
+    'Model',
     'get_grids',
     'create_geometry',
     'Diagnostics',

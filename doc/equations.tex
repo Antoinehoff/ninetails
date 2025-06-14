@@ -1,4 +1,133 @@
+\documentclass{article}
+\usepackage{amsmath} % For align environment
+\usepackage{amssymb} % For additional math symbols
+\usepackage{amsfonts} % For math fonts
+\usepackage{geometry} % To adjust page layout
+\geometry{a4paper, margin=1in} % Setting page size and margins
+\usepackage{graphicx} % For including graphics
+\usepackage{hyperref} % For hyperlinks
+
+\input{my_cmd.tex}
+
+\begin{document}
+
+\section{Gyro-Moment Equations}
+In the projection of the gyrokinetic Boltzmann equation onto the Hermite-Laguerre basis, the gyro-averaging operator $\hat J_0$ is written as the Bessel function of the first kind, which can be expressed in terms of Laguerre polynomials as
+\begin{equation}
+    \hat J_0\bigl(\sqrt{\lperp \wperp}\bigr)  =  \sum_{n=0}^\infty \kernel_i^n(\lperp)\,L_n(\wperp).
+\label{eq:bess_lag}
+\end{equation}
+Here, $\lperp = \tau\,k_\perp^2/2$ and $k_\perp^2 = g^{xx}k_x^2 \,+\,2\, g^{xy}k_xk_y \,+\, g^{yy}k_y^2$, while the functions
+\begin{equation}
+    \kernel_i^n(\lperp)  =  \frac{(\lperp)^n}{n!} \, e^{-\lperp}
+    \label{eq:kernel}
+\end{equation}
+serve as ``kernels'' that separate the configuration- and velocity-space dependences.  
+
+When one projects the local $\delta f$ GK Boltzmann equation onto the Hermite--Laguerre basis, one obtains the following set of GM equations:
+\begin{subequations}
+\begin{equation}
+    \label{eq:moment_hierarchy_app}
+    \ddt N_i^{pj}
+     + \mathcal S^{pj}
+     + \mathcal M_{\parallel }^{pj}
+     + \mathcal M_{\perp}^{pj}
+     + \mathcal D_{T}^{pj}
+     + \mathcal D_{N}^{pj}
+     = \mathcal C_i^{pj},
+   % \tag{\ref{eq:moment_hierarchy_app}}
+\end{equation}
+
+which writes explicitly as
+\begin{align}
+    % &\frac{\partial N_i^{pj}}{\partial t}
+    &\ddt N_i^{pj}
+    % Nonlinear ExB
+    +  \sum_{n=0}^{\infty}\pb{\kernel_i^n\phi}{\sum_{s=0}^{n+j}d_{njs} N_i^{ps}}\label{eq:exbdrift}\\
+    % Trapping/mirror
+    & +\sqrt{\tau} \left(\Cpar\aleph_i^{p\pm1,j} - C_\parallel^B \left[(j+1)\aleph_i^{p\pm1,j}-j\aleph_i^{p\pm1,j-1}\right]\right)\label{eq:mirrforce}\\
+    % Landau damping
+    &+\sqrt{\tau}C_\parallel^{B}\sqrt{p}\left([2j+1]n_i^{p-1,j} -[j+1]n_i^{p-1,j+1} - j n_i^{p-1,j-1}\right)\label{eq:landdamp}\\
+    % Centrifugal drift
+    &+ \frac{\tau}{q_i} \Cper \squareparenthesis{\sqrt{(p+1)(p+2)} n_i^{p+2,j} + (2p+1)n_i^{pj} + \sqrt{p(p-1)}n_i^{p-2,j}}\label{eq:centforce}\\
+    % Perp. Magnetic gradient drift
+    &+ \frac{\tau}{q_i} \Cper \squareparenthesis{(2j+1)n_i^{pj} - (j+1)n_i^{p,j+1}-jn_i^{p,j-1}}\label{eq:magperp}\\
+    % Diamagn. temperature grad.
+    % &+R_T ik_y\left(\kernel_i^j\squareparenthesis{\frac{1}{\sqrt{2}}\delta_{p2} -\delta_{p0}}+ \squareparenthesis{(2j+1)\kernel_i^j-(j+1)\kernel_i^{j+1}-j\kernel_i^{j-1}}\delta_{p0}\right)\phi\label{eq:diatemp}\\
+    &+R_T ik_y\left(\frac{\sqrt{2}}{2}\kernel_i^j\delta_{p2} + \squareparenthesis{2j\kernel_i^j-(j+1)\kernel_i^{j+1}-j\kernel_i^{j-1}}\delta_{p0}\right)\phi\label{eq:diatemp}\\
+    % Diamagn. density grad. + coll
+    &+R_N ik_y \kernel_a^j \phi\delta_{p0} = \mathcal C_{i}^{pj},
+    \label{eq:diadens}
+\end{align}
+with $\aleph_i^{p\pm1,j}=\sqrt{p+1} n_i^{p+1,j} + \sqrt{p} n_i^{p-1,j}$ and $n_i^{pj}=N_i^{pj}+q_i/\tau \kernel_i^j\phi\delta_{p0}$, the non-adiabatic GMs.
+We also introduce the parallel curvature operator $\Cpar = R_0/(J_{xyz}\hat B)\ddz$, $J_{xyz}$ being the Jacobian of the field-aligned coordinates and $\hat B$ the normalized magnetic field amplitude, the parallel magnetic curvature $C_\parallel^{B}=\Cpar\ln B$, the perpendicular curvature operator $\Cper$. 
+
+\end{subequations}
+In Eq.~\ref{eq:moment_hierarchy_app}, $\mathcal S^{pj}$ is the nonlinear  $E\times B$
+drift term (arising, for example, from the second term in Eq.~\ref{eq:exbdrift}),
+which in Fourier space is expressed via Poisson brackets $\pb{\cdot}{\cdot}$ 
+and the convolution of Laguerre polynomials $L_nL_j=\sum_{n=0}^{n+j}d_{njs}L_s$. 
+The operator $\mathcal M_{\parallel}^{pj}$ includes trapping effects 
+(Eq.~\ref{eq:mirrforce}) and Landau damping (Eq.~\ref{eq:landdamp}), 
+while $\mathcal M_{\perp}^{pj}$ represents magnetic centrifugal effects (Eq.~\ref{eq:centforce}) 
+and perpendicular gradient terms (Eq.~\ref{eq:magperp}). 
+Finally, $\mathcal C_i^{pj}$ denotes the projection of the ion--ion collision operator (see below).  
+\par
+When considering an adiabatic electron response, the GM equations are closed by the quasineutrality relation,
+\begin{equation}
+     \Bigl(1 + \frac{q_i^2}{\tau}\bigl[1-\!\!\sum_{n=0}^{\infty}\bigl(\kernel_{i}^n\bigr)^2\bigr]\Bigr)\,\phi  - \bigl\langle \phi \bigr\rangle_{y z} 
+      =  q_i\,\sum_{n=0}^{\infty}\kernel_{i}^n\, N_i^{0n}.
+    \label{ch5_eq:poisson_moments_adiabe}
+\end{equation}
+
+\subsection{A few moment equations}
+The first moment equation, $N_i^{00}$, is the continuity equation for the gyro-density $n_i$, which is given by
+\begin{align}
+\label{eq:moment_0}
+d_T N_i^{0,0}  &= \sqrt{\tau} \left( \hat{C}_{\parallel} - C^B_{\parallel} \right) n_i^{10}
+- \frac{\tau}{q_i} \hat{C}_{\perp} \left(2 n_i^{00} + \sqrt{2} n_i^{20} - n_i^{01} \right)
++  \kernel_i^0 \left(  R_T - R_N \right) i k_y  \phi.
+\end{align}
+
+The second moment equation, $N_i^{10}$, is the parallel momentum equation for the gyro-momentum $u_i$, which is given by
+\begin{align}
+\label{eq:moment_1}
+d_t N_i^{10} &= \sqrt{\tau} \hat{C}_{\parallel} \left( n_i^{00} + \sqrt{2} n_i^{20} \right) 
+    - \sqrt{\tau} C^B_{\parallel} \left( \sqrt{2} n_i^{20} + n_i^{01} \right)
+    + \frac{\tau}{q_i} \hat{C}_{\perp} \left( 4 n_i^{10} + \sqrt{6} n_i^{30} - n_i^{11} \right)
+\end{align}
+
+The third moment equation, $N_i^{20}$, is the parallel temperature equation, which is given by
+\begin{align}
+\label{eq:moment_2}
+d_t N_i^{20} &= \sqrt{\tau} \hat{C}_{\parallel} \left( \sqrt{2}n_i^{10} + \sqrt{3} n_i^{30} \right) 
+    - \sqrt{\tau} C^B_{\parallel} \left( \sqrt{3}n_i^{30} + \sqrt{2} n_i^{11} \right) \nonumber\\
+    &+ \frac{\tau}{q_i} \hat{C}_{\perp} \left( 6 n_i^{20} + \sqrt{2} n_i^{00} + \sqrt{12} n_i^{40} - n_i^{21} \right) 
+    - \frac{\sqrt{2}}{2} \kernel_i^0  R_T  i k_y \phi.
+\end{align}
+
+The fourth moment equation, $N_i^{01}$, is the perpendicular temperature equation, which is given by
+\begin{align}
+\label{eq:moment_3}
+d_t N_i^{01} &= \sqrt{\tau} \hat{C}_{\parallel} n_i^{11} 
+    - \sqrt{\tau} C^B_{\parallel} \left( 2n_i^{02} + 2 n_i^{11} \right)
+    + \frac{\tau}{q_i} \hat{C}_{\perp} \left( 4 n_i^{01} - n_i^{00} + \sqrt{2} n_i^{21} - 2 n_i^{02} \right) \nonumber \\
+    &- \left([2\kernel_i^1 - \kernel_i^0 - 2\kernel_i^2]R_T + \kernel_i^1 R_N \right) i k_y \phi.
+\end{align}
+
 \section{Fluid Model Equations}
+
+Consider a single-charge ion species ($q_i=1$). One can expand the kernel functions $\kernel_n$ [Eq.~\eqref{eq:kernel}] for small $\tau$, namely
+\begin{align}
+    \kernel_0  &=  1  - \lperp
+                  + \tfrac12\,\lperp^2 + \order{\tau^3},\\
+    \kernel_1  &=  \lperp
+                  - \lperp^2
+                  + \order{\tau^3},\\    
+    \kernel_2  &=  \tfrac12\,\lperp^2  + \order{\tau^3},
+\end{align}
+with $\lperp = \tau k_\perp^2/2$.
+These expansions assume $\lperp\,\tau \lesssim 1$ (typical of the high-$T_e$ regime).  
 
 We present here explicitly the fluid equations derived in the gyro-moment framework:
 
@@ -37,7 +166,131 @@ k_\perp^2 &= g^{xx}k_x^2 + 2g^{xy}k_x k_y + g^{yy}k_y^2,
 
 and the magnetic curvature operators defined as
 \begin{align}
-\mathcal{C}_{xy} &= -\left[\partial_y \ln B + \frac{\Gamma_2}{\Gamma_1}\partial_z \ln B\right]\frac{\partial}{\partial x} + \left[\partial_x \ln B - \frac{\Gamma_3}{\Gamma_1}\partial_z \ln B\right]\frac{\partial}{\partial y},\\
-\mathcal{C}_\parallel &= \frac{R_0}{J_{xyz}\hat{B}}\frac{\partial}{\partial z},\\
 \mathcal{C}_\parallel^{B} &= \mathcal{C}_\parallel\ln B.
 \end{align}
+
+\subsubsection*{Curvature operators}
+The perpendicular curvature operator $\mathcal{C}_\perp$ is defined as
+\begin{align}
+\mathcal{C}_\perp &=
+\end{align}
+
+The parallel curvature operator $\mathcal{C}_\parallel$ is defined as
+\begin{align}
+\mathcal{C}_\parallel &=
+\end{align}
+
+\newpage
+\appendix
+\section{Moment Coupling Tables}
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{c|ccccc}
+    $j+1$ & $0$ & $-\sqrt{p}(j+1)\CparB$ & $0$ & $0$ & $0$ \\
+    & & & & & \\
+    $j$   & $0$ & $\sqrt{p}(\Cpar + j \CparB)$ & $0$ & $\sqrt{p+1}(\Cpar - [j+1]\CparB)$ & $0$ \\
+    & & & & & \\
+    $j-1 $& $0$ & $0$ & $0$ & $\sqrt{p+1}j\CparB$ & $0$ \\
+    & & & & & \\
+    \hline
+          & $p-2$ & $p-1$ & $p$ & $p+1$ & $p+2$
+    \end{tabular}
+    \caption{Moment coupling table of the parallel magnetic terms \eqref{eq:mirrforce} and \eqref{eq:landdamp}.}
+    \label{tab:moment_coupling_parallel}
+    \end{table}
+    
+    \begin{table}[h]
+    \centering
+    \begin{tabular}{c|ccccc}
+    $j+1$ & $0$ & $0$ & $-(j+1)\tau\Cper$ & $0$ & $0$ \\
+    & & & & & \\
+    $j$   & $\sqrt{p(p-1)}\tau\Cper$ & $0$ & $2(p+j+1)\tau\Cper$ & $0$ & $\sqrt{(p+1)(p+2)}\tau\Cper$ \\
+    & & & & & \\
+    $j-1 $& $0$ & $0$ & $-j\tau\Cper$ & $0$ & $0$ \\
+    & & & & & \\
+    \hline
+          & $p-2$ & $p-1$ & $p$ & $p+1$ & $p+2$
+    \end{tabular}
+    \caption{Moment coupling table of the perpendicular magnetic terms \eqref{eq:centforce} and \eqref{eq:magperp}.}
+    \label{tab:moment_coupling_perpendicular}
+    \end{table}
+    
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{c|ccccc}
+        $j+1$ & $0$ & $-\sqrt{p}(j+1)\CparB$ & $-(j+1)\Cper$ & $0$ & $0$ \\
+        & & & & & \\
+        $j$   & $\sqrt{p(p-1)}\Cper$ & $\sqrt{p}(\Cpar + j \CparB)$ & $2(p+j+1)\Cper$ & $\sqrt{p+1}(\Cpar - [j+1]\CparB)$ & $\sqrt{(p+1)(p+2)}\Cper$ \\
+        & & & & & \\
+        $j-1 $& $0$ & $0$ & $-j\Cper$ & $\sqrt{p+1}j\CparB$ & $0$ \\
+        & & & & & \\
+        \hline
+              & $p-2$ & $p-1$ & $p$ & $p+1$ & $p+2$
+        \end{tabular}
+        \caption{Combination of the moment coupling tables \ref{tab:moment_coupling_parallel} and \ref{tab:moment_coupling_perpendicular}.
+        We hide the $\tau$ and $\sqrt{\tau}$ factors for clarity.}
+        \label{tab:moment_coupling_all}
+    \end{table}
+    
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{c|ccccc}
+        $j+1$ & $0$ & $0$ & $-\Cper$ & $0$ & $0$ \\
+        & & & & & \\
+        $j$   & $0$ & $0$ & $2\Cper$ & $(\Cpar - \CparB)$ & $\sqrt{2}\Cper$ \\
+        & & & & & \\
+        $j-1 $& $0$ & $0$ & $0$ & $0$ & $0$ \\
+        & & & & & \\
+        \hline
+              & $p-2$ & $p-1$ & $p$ & $p+1$ & $p+2$
+        \end{tabular}
+        \caption{$p=0, j=0$.}
+    \end{table}
+    
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{c|ccccc}
+            $j+1$ & $0$ & $-\CparB$ & $-\Cper$ & $0$ & $0$ \\
+            & & & & & \\
+            $j$   & $0$ & $\Cpar$ & $4\Cper$ & $\sqrt{2}(\Cpar - \CparB)$ & $\sqrt{6}\Cper$ \\
+            & & & & & \\
+            $j-1 $& $0$ & $0$ & $0$ & $0$ & $0$ \\
+            & & & & & \\
+            \hline
+                  & $p-2$ & $p-1$ & $p$ & $p+1$ & $p+2$
+            \end{tabular}
+        \caption{$p=1, j=0$.}
+    \end{table}
+    
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{c|ccccc}
+        $j+1$ & $0$ & $-\sqrt{2}\CparB$ & $-\Cper$ & $0$ & $0$ \\
+        & & & & & \\
+        $j$   & $\sqrt{2}\Cper$ & $\sqrt{2}\Cpar$ & $6\Cper$ & $\sqrt{3}(\Cpar - \CparB)$ & $\sqrt{12}\Cper$ \\
+        & & & & & \\
+        $j-1 $& $0$ & $0$ & $0$ & $0$ & $0$ \\
+        & & & & & \\
+        \hline
+              & $p-2$ & $p-1$ & $p$ & $p+1$ & $p+2$
+        \end{tabular}
+        \caption{$p=2, j=0$.}
+    \end{table}
+    
+    \begin{table}[h]
+        \centering
+        \begin{tabular}{c|ccccc}
+        $j+1$ & $0$ & $0$ & $-2\Cper$ & $0$ & $0$ \\
+        & & & & & \\
+        $j$   & $0$ & $0$ & $4\Cper$ & $(\Cpar - 2\CparB)$ & $\sqrt{2}\Cper$ \\
+        & & & & & \\
+        $j-1 $& $0$ & $0$ & $-\Cper$ & $\CparB$ & $0$ \\
+        & & & & & \\
+        \hline
+              & $p-2$ & $p-1$ & $p$ & $p+1$ & $p+2$
+        \end{tabular}
+        \caption{$p=0$, $j=1$.}
+    \end{table}
+
+\end{document}
