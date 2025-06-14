@@ -82,7 +82,7 @@ class Plotter:
         total = self.simulation.diagnostics.integrated['Etot']
         
         # Create the plot
-        fig, ax = plt.subplots(figsize=self.figsize)
+        fig, ax = plt.subplots(figsize=self.figsize if hasattr(self, 'figsize') else (6, 4))
         
         ax.plot(times, kinetic, 'r-', label='Kinetic')
         ax.plot(times, thermal, 'g-', label='Thermal')
@@ -114,7 +114,7 @@ class Plotter:
         
 
         # Create the growth rate plot
-        fig, ax = plt.subplots(figsize=(10, 8))
+        fig, ax = plt.subplots(figsize=self.figsize if hasattr(self, 'figsize') else (6, 4))
 
         kx = self.simulation.kgrids[0]
         ky = self.simulation.kgrids[1]
@@ -147,7 +147,7 @@ class Plotter:
             field = PostProcessor.to_real_space(self.simulation,field)
 
         # Create the plot
-        fig, ax = plt.subplots(figsize=self.figsize)
+        fig, ax = plt.subplots(figsize=self.figsize if hasattr(self, 'figsize') else (6, 4))
         
         # Plot the data
         im = ax.imshow(field[:, :, z_idx].T, origin='lower', cmap='RdBu')
