@@ -42,11 +42,11 @@ class Geometry:
         self.iky0 = np.argmin(np.abs(ky))
         
         # Initialize arrays
-        self.g_xx = np.zeros((self.nkx, self.nky, self.nz))
-        self.g_xy = np.zeros((self.nkx, self.nky, self.nz))
-        self.g_xz = np.zeros((self.nkx, self.nky, self.nz))
-        self.g_yy = np.zeros((self.nkx, self.nky, self.nz))
-        self.g_yz = np.zeros((self.nkx, self.nky, self.nz))
+        self.gxx = np.zeros((self.nkx, self.nky, self.nz))
+        self.gxy = np.zeros((self.nkx, self.nky, self.nz))
+        self.gxz = np.zeros((self.nkx, self.nky, self.nz))
+        self.gyy = np.zeros((self.nkx, self.nky, self.nz))
+        self.gyz = np.zeros((self.nkx, self.nky, self.nz))
         self.g_zz = np.zeros((self.nkx, self.nky, self.nz))
         
         self.jacobian = np.zeros((self.nkx, self.nky, self.nz))
@@ -90,29 +90,29 @@ class Geometry:
         kx_3d = kx_2d[:, :, np.newaxis]
         ky_3d = ky_2d[:, :, np.newaxis]
         
-        self.kperp2 = (self.g_xx * kx_3d**2 + 
-                      2 * self.g_xy * kx_3d * ky_3d + 
-                      self.g_yy * ky_3d**2)
+        self.kperp2 = (self.gxx * kx_3d**2 + 
+                      2 * self.gxy * kx_3d * ky_3d + 
+                      self.gyy * ky_3d**2)
         
         # Compute lperp as defined in equation (A11)
         self.lperp = 0.5 * self.params.tau * self.kperp2
 
         # Compute the first kernels
-        self.K0 = 1 - self.lperp + 0.5 * self.lperp**2
-        self.K1 = self.lperp - self.lperp**2
-        self.K2 = 0.5*self.lperp**2
+        # self.K0 = 1 - self.lperp + 0.5 * self.lperp**2
+        # self.K1 = self.lperp - self.lperp**2
+        # self.K2 = 0.5*self.lperp**2
 
         # Or get the analytic expression for the kernels
-        #self.K0 = np.exp(-self.lperp)
-        #self.K1 = self.lperp * np.exp(-self.lperp)
-        #self.K2 = 0.5 * self.lperp**2 * np.exp(-self.lperp)
+        self.K0 = np.exp(-self.lperp)
+        self.K1 = self.lperp * np.exp(-self.lperp)
+        self.K2 = 0.5 * self.lperp**2 * np.exp(-self.lperp)
     
     def get_curvature_operators(self):
         """
         Compute all curvature operators
         """
-        i_kx = np.zeros_like(self.g_xx, dtype=np.complex128)
-        i_ky = np.zeros_like(self.g_xx, dtype=np.complex128)
+        i_kx = np.zeros_like(self.gxx, dtype=np.complex128)
+        i_ky = np.zeros_like(self.gxx, dtype=np.complex128)
 
         for i in range(self.nkx):
             for j in range(self.nky):
@@ -120,16 +120,16 @@ class Geometry:
                     i_kx[i, j, k] = 1j * self.kx[i]
                     i_ky[i, j, k] = 1j * self.ky[j]
             
-
-        Gamma1 = self.g_xx * self.g_yy - self.g_xy**2
-        Gamma2 = self.g_yy
-        Gamma3 = self.g_xx
+        Gamma1 = self.gxx * self.gyy - self.gxy * self.gxy
+        Gamma2 = self.gxx * self.gyz - self.gxy * self.gxz
+        Gamma3 = self.gxy * self.gyz - self.gyy * self.gxz
 
         G21 = Gamma2/Gamma1
         G31 = Gamma3/Gamma1
 
         self.Cxy = (-(self.dlnBdy + G21 * self.dlnBdz) * i_kx \
                     +(self.dlnBdx - G31 * self.dlnBdz) * i_ky ) 
+        
         self.Cperp = self.Cxy_op
         self.Cpar = self.Cz_op
         self.CparB = self.Cbz_op
@@ -159,8 +159,8 @@ class ZPinchGeometry(Geometry):
         R0 = getattr(self.params, 'R0', 1.0)
         # In Z-pinch, metrics are uniform in x,y at each z
         for iz in range(self.nz):
-            self.g_xx[:, :, iz] = 1.0
-            self.g_yy[:, :, iz] = 1.0
+            self.gxx[:, :, iz] = 1.0
+            self.gyy[:, :, iz] = 1.0
             self.g_zz[:, :, iz] = 1.0/R0**2
             self.jacobian[:, :, iz] = R0**2
             self.hatB[:, :, iz] = 1.0
@@ -179,10 +179,10 @@ class SAlphaGeometry(Geometry):
         
         # Compute metric components at each z location
         for iz, zz in enumerate(self.z):
-            self.g_xx[:, :, iz] = 1
-            self.g_yy[:, :, iz] = 1 + (shear * zz)**2
-            self.g_xy[:, :, iz] = shear * zz
-            self.g_yz[:, :, iz] = 1 / eps
+            self.gxx[:, :, iz] = 1
+            self.gyy[:, :, iz] = 1 + (shear * zz)**2
+            self.gxy[:, :, iz] = shear * zz
+            self.gyz[:, :, iz] = 1 / eps
             self.g_zz[:, :, iz] = 1 / eps**2
 
             hatB = 1 / (1 + eps * np.cos(zz))
