@@ -2,7 +2,8 @@
 import numpy as np
 from .poisson_bracket import PoissonBracket
 from .poisson_solver import PoissonSolver
-from .src import GM9, GM4, hasegawa_mima_rhs, hasegawa_wakatani_rhs, modified_hasegawa_wakatani_rhs
+from .src import GM9, GM4, GM3, hasegawa_mima_rhs, hasegawa_wakatani_rhs, \
+    modified_hasegawa_wakatani_rhs
 from scipy.special import factorial
 
 class Model:
@@ -65,6 +66,8 @@ class Model:
             self.rhs = lambda t, y: GM9(self, t, y)  # Pass self to GM9
         elif self.model_type == 'GM4':
             self.rhs = lambda t, y: GM4(self, t, y)  # Pass self to GM4
+        elif self.model_type == 'GM3':
+            self.rhs = lambda t, y: GM3(self, t, y)
         elif self.model_type == 'HM':
             self.rhs = lambda t, y: hasegawa_mima_rhs(self, t, y)  # Pass self to hasegawa_mima_rhs
         elif self.model_type == 'HW':
