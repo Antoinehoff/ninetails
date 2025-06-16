@@ -31,7 +31,7 @@ class PoissonSolver:
         # For quick access
         self.jacobian = geometry.jacobian
         
-        sumKer2 = (self.K0**2 * self.K1**2 * self.K2**2)
+        sumKer2 = (self.K0**2 + self.K1**2 + self.K2**2)
         self.coeff = 1 + (1 - sumKer2) / self.params.tau
 
         if self.nz > 1:

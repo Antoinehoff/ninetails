@@ -55,6 +55,7 @@ class Geometry:
         self.dlnBdy = np.zeros((self.nkx, self.nky, self.nz))
         self.dlnBdz = np.zeros((self.nkx, self.nky, self.nz))
 
+        self.Cxy = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
         self.Cperp = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
         self.Cpar = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
         self.CparB = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
@@ -111,25 +112,59 @@ class Geometry:
         """
         Compute all curvature operators
         """
-        i_kx = np.zeros_like(self.gxx, dtype=np.complex128)
-        i_ky = np.zeros_like(self.gxx, dtype=np.complex128)
 
         for i in range(self.nkx):
             for j in range(self.nky):
                 for k in range(self.nz):
-                    i_kx[i, j, k] = 1j * self.kx[i]
-                    i_ky[i, j, k] = 1j * self.ky[j]
-            
-        Gamma1 = self.gxx * self.gyy - self.gxy * self.gxy
-        Gamma2 = self.gxx * self.gyz - self.gxy * self.gxz
-        Gamma3 = self.gxy * self.gyz - self.gyy * self.gxz
+                    i_kx = 1j * self.kx[i]
+                    i_ky = 1j * self.ky[j]
+                    gxx = self.gxx[i, j, k]
+                    gxy = self.gxy[i, j, k]
+                    gyz = self.gyz[i, j, k]
+                    gyy = self.gyy[i, j, k]
+                    gxy = self.gxy[i, j, k]
+                    gxz = self.gxz[i, j, k]
+                    dlnBdx = self.dlnBdx[i, j, k]
+                    dlnBdy = self.dlnBdy[i, j, k]
+                    dlnBdz = self.dlnBdz[i, j, k]
 
-        G21 = Gamma2/Gamma1
-        G31 = Gamma3/Gamma1
+                    Gamma1 = gxx * gyy - gxy * gxy
+                    Gamma2 = gxx * gyz - gxy * gxz
+                    Gamma3 = gxy * gyz - gyy * gxz
 
-        self.Cxy = (-(self.dlnBdy + G21 * self.dlnBdz) * i_kx \
-                    +(self.dlnBdx - G31 * self.dlnBdz) * i_ky ) 
-        
+                    G21 = Gamma2 / Gamma1
+                    G31 = Gamma3 / Gamma1
+
+                    self.Cxy[i, j, k] = - (dlnBdy + G21 * dlnBdz) * i_kx \
+                                        + (dlnBdx - G31 * dlnBdz) * i_ky
+                    
+        # i_kx = np.zeros_like(self.gxx, dtype=np.complex128)
+        # i_ky = np.zeros_like(self.gxx, dtype=np.complex128)
+
+        # for i in range(self.nkx):
+        #     for j in range(self.nky):
+        #         for k in range(self.nz):
+        #             i_kx[i, j, k] = 1j * self.kx[i]
+        #             i_ky[i, j, k] = 1j * self.ky[j]
+
+        # Gamma1 = self.gxx * self.gyy - self.gxy * self.gxy
+        # Gamma2 = self.gxx * self.gyz - self.gxy * self.gxz
+        # Gamma3 = self.gxy * self.gyz - self.gyy * self.gxz
+
+        # G21 = Gamma2/Gamma1
+        # G31 = Gamma3/Gamma1
+
+        # self.Cxy =  -(self.dlnBdy + G21 * self.dlnBdz) * i_kx \
+        #             +(self.dlnBdx - G31 * self.dlnBdz) * i_ky
+
+        # g_xz = self.jacobian**2*(self.gxy * self.gyz - self.gyy * self.gxz)
+        # g_yz = self.jacobian**2*(self.gxy * self.gxz - self.gxx * self.gyz)
+        # g_zz = self.jacobian**2*(self.gxx * self.gyy - self.gxy**2)
+        # Cx = -(self.dlnBdy - g_yz/g_zz * self.dlnBdz) / self.hatB
+        # Cy =  (self.dlnBdx - g_xz/g_zz * self.dlnBdz) / self.hatB
+        # self.Cxy = (Cx * i_kx + Cy * i_ky)
+
+
         self.Cperp = self.Cxy_op
         self.Cpar = self.Cz_op
         self.CparB = self.Cbz_op
@@ -161,8 +196,8 @@ class ZPinchGeometry(Geometry):
         for iz in range(self.nz):
             self.gxx[:, :, iz] = 1.0
             self.gyy[:, :, iz] = 1.0
-            self.g_zz[:, :, iz] = 1.0/R0**2
-            self.jacobian[:, :, iz] = R0**2
+            self.g_zz[:, :, iz] = 1.0 ## 1.0/R0**2
+            self.jacobian[:, :, iz] = 1.0 ## R0**2
             self.hatB[:, :, iz] = 1.0
             self.dlnBdx[:, :, iz] = -1.0
             self.dlnBdy[:, :, iz] = 0.0

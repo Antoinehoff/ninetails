@@ -1,5 +1,6 @@
 # post_processing.py
 import numpy as np
+from .tools import slice_average
 
 class PostProcessor:
 
@@ -27,49 +28,64 @@ class PostProcessor:
         
         return data_real
 
-    def compute_growth_rates(simulation, time, field, tlim =[], z_idx=0):
-        # Extract time and field data
+    def compute_growth_rates(simulation, time, field, tlim=[], z_idx=0, return_error=False):
+        # Extract time range if tlim is provided
         if tlim:
             time_indices = np.where((time >= tlim[0]) & (time <= tlim[1]))[0]
         else:
-            # take half of the time
-            time_indices = np.arange(len(time)//2)
+            time_indices = np.arange(len(time) // 2)  # Default: use half of the time range
         time = time[time_indices]
         field = field[time_indices, :, :, :]
 
-        # Initialize growth rate array
+        # Initialize growth rate arrays
         growth_rates = np.zeros((simulation.nkdims[0], simulation.nkdims[1]))
-        max_amplitude = np.zeros((simulation.nkdims[0], simulation.nkdims[1]))
-        
+        errors = np.zeros((simulation.nkdims[0], simulation.nkdims[1]))
+        total_err = 0.0
+
         # Loop over all modes
         for ikx in range(simulation.nkdims[0]):
             for iky in range(simulation.nkdims[1]):
                 # Extract mode amplitude over time
-                mode_data = field[:, ikx, iky, z_idx]
-                amplitude = np.abs(mode_data)
-                
-                # Store maximum amplitude
-                max_amplitude[ikx, iky] = np.max(amplitude)
-                
+                mode_data = np.abs(field[:, ikx, iky, z_idx])
+
                 # Skip modes with very small amplitude to avoid numerical issues
-                if max_amplitude[ikx, iky] < 1e-10:
-                    growth_rates[ikx, iky] = 0.0
+                if np.max(mode_data) < 1e-10:
                     continue
-                
-                # Compute growth rate using linear fit in log space
-                if np.all(amplitude > 0):  # Ensure all amplitudes are positive
-                    try:
-                        # Use only the growing part for the fit
-                        # Take log of amplitude for linear fit
-                        log_amplitude = np.log(amplitude)
-                        
-                        # Linear fit: log(A) = γt + c
-                        # Fit a line to the log of the amplitude
-                        polyfit = np.polyfit(time, log_amplitude, 1)
-                        growth_rates[ikx, iky] = polyfit[0]  # Slope = growth rate
-                    except:
-                        growth_rates[ikx, iky] = 0.0
+
+                # Compute growth rates using corrected method
+                gamma = np.zeros(len(time))
+                for it in range(1, len(time)):
+                    y_n = mode_data[it]
+                    y_nm1 = mode_data[it - 1]
+                    dt = time[it] - time[it - 1]
+                    
+                    # Avoid log of zero or negative values
+                    if y_n > 0 and y_nm1 > 0:
+                        gamma[it] = np.log(y_n / y_nm1) / dt
+                    else:
+                        gamma[it] = 0.0
+
+                # Error estimation (slice averaging)
+                n = min(5, len(gamma) // 2)  # Number of points for averaging
+                if n > 1:
+                    gamma_avg, _, gamma_err = slice_average(gamma, n)
+                    growth_rates[ikx, iky] = np.mean(gamma_avg[n:])  # Skip initial transient
+                    errors[ikx, iky] = np.mean(gamma_err[n:])
+                    total_err += errors[ikx, iky]
                 else:
-                    growth_rates[ikx, iky] = 0.0
-        
-        return growth_rates, max_amplitude
+                    growth_rates[ikx, iky] = np.mean(gamma[len(gamma)//2:])  # Use second half
+                    errors[ikx, iky] = np.std(gamma[len(gamma)//2:])
+                    total_err += errors[ikx, iky]
+
+        # Normalize total error by the number of modes
+        total_err /= (simulation.nkdims[0] * simulation.nkdims[1])
+
+        if return_error:
+            return growth_rates, total_err, errors
+        else:
+            return growth_rates, total_err
+
+    def compute_mode_amplitude_evolution(simulation, time, field, z_idx=0):
+        mode_amplitudes_kx = np.abs(field[:, :, 0, z_idx])  # ky=0
+        mode_amplitudes_ky = np.abs(field[:, 0, :, z_idx])  # kx=0
+        return mode_amplitudes_kx, mode_amplitudes_ky

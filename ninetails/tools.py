@@ -76,3 +76,8 @@ def test_integral_methods():
     # Check the results
     assert np.isclose(int_y_trapz, int_y_simpson, atol=1e-6)
     assert np.isclose(int_dy_trapz, int_dy_simpson, atol=1e-6)
+
+def slice_average(data, n):
+    averaged_data = np.convolve(data, np.ones(n) / n, mode='valid')
+    error = np.abs(data[n - 1:] - averaged_data)
+    return averaged_data, data, error

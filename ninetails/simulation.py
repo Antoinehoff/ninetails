@@ -121,7 +121,9 @@ class Simulation:
         N_real =  0.5 * np.random.normal(size=self.ndims)
         for iz in range(self.ndims[2]):
             self.y0[0][:, :, iz] = np.fft.rfft2(N_real[:, :, iz])
-
+        # zero out the average
+        self.y0[0][0, 0, :] = 0.0
+        
         self.verbose = False
 
         self.equations = Model(self.config, self.geometry)
