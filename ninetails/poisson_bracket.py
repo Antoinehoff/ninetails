@@ -16,8 +16,6 @@ class PoissonBracket:
         method : str
             Method to use for anti-aliasing. Options are 'filtering' and 'padding'
         """
-        self.FFT = FastFourierTransform()
-        
         self.AA_method = AA_method
         self.kx = kx
         self.ky = ky
@@ -29,7 +27,7 @@ class PoissonBracket:
         # Calculate dealiasing pad sizes (using 3/2 rule)
         self.nx_pad = int(self.nx * 3 / 2)
         self.ny_pad = int(self.ny * 3 / 2)
-                
+                        
         # Select the anti-aliasing method
         if self.AA_method == 'filtering':
             # create the filtering array
@@ -44,6 +42,11 @@ class PoissonBracket:
         else:
             raise ValueError("Invalid anti-aliasing method")
 
+        self.norm='ortho'
+        self.axes=(-2, -1)
+        self.size =(self.nx, self.ny)
+        self.FFT = FastFourierTransform(norm=self.norm, axes=self.axes, size=self.size)
+        
     
     def pad(self, f_hat):
         """
@@ -110,37 +113,8 @@ class PoissonBracket:
             
         return f_hat
     
-    def convolution_theorem(self, f, g):
-        """
-        Compute the convolution of two functions using the convolution theorem.
-        
-        Parameters:
-        -----------
-        f : ndarray
-            First function in real space
-        g : ndarray
-            Second function in real space
-            
-        Returns:
-        --------
-        ndarray
-            Convolution of f and g in real space
-        """
-        # Compute Fourier transforms
-        s = (self.nx, self.ny)
-        axes = (-2,-1)
-        norm = 'ortho'
-        f_hat = np.fft.irfft2(f, s=s, axes=axes, norm=norm)
-        g_hat = np.fft.irfft2(g, s=s, axes=axes, norm=norm)
-        
-        # Compute product in Fourier space
-        fg_hat = f_hat * g_hat
-        
-        # Transform back to real space
-        norm = 'ortho'
-        fg = np.fft.rfft2(fg_hat, s=s, axes=axes, norm=norm)
-        
-        return fg * self.mult_factor
+    def convolution_theorem(self, f, g):                            
+        return self.FFT.rfft2(self.FFT.irfft2(f) * self.FFT.irfft2(g))
         
     def compute_filtering(self, a_hat, b_hat):
         
