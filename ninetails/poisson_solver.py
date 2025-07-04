@@ -39,7 +39,11 @@ class PoissonSolver:
         else:
             self.inv_jacobian_integral = 1.0
         
-    def flux_surf_avg(self, phi):
+        # Pre-allocate work arrays to avoid allocations in solve()
+        self._work_phi_avg = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        self._work_rhs = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        
+    def flux_surf_avg(self, phi, result=None):
         """
         Compute the flux surface average of phi according to the equation:
         <phi>_yz = (1/∫dz J_xyz) ∫dz J_xyz * phi(k_x, k_y=0, z, t)
@@ -48,6 +52,8 @@ class PoissonSolver:
         -----------
         phi : ndarray
             Electrostatic potential in Fourier space (k_x, k_y, z)
+        result : ndarray, optional
+            Pre-allocated output array
             
         Returns:
         --------
@@ -57,23 +63,26 @@ class PoissonSolver:
         if self.nz == 1:
             return 0
         else:
-            # Extract the k_y = 0 components
-            phi_ky0 = phi[:, 0, :]
-
-            phi_avg = np.zeros_like(phi)
-            phi_avg[:, 0, :] = phi_ky0
+            if result is None:
+                result = self._work_phi_avg
+            
+            # Zero the result array
+            result[:] = 0
+            
+            # Extract the k_y = 0 components and set them in result
+            result[:, 0, :] = phi[:, 0, :]
 
             # Compute the integrand J_xyz * phi
-            integrand = self.jacobian * phi_avg
+            integrand = self.jacobian * result
             
             # Compute the flux surface average by integrating over z
             # and normalizing by the integral of the Jacobian
             integral = tools_integral(integrand, self.dz, axis=-1)
 
             # Compute the flux surface average
-            phi_avg = self.inv_jacobian_integral * integral
+            result[:] = self.inv_jacobian_integral * integral
 
-            return phi_avg
+            return result
     
     def solve(self, y):
         """
@@ -85,32 +94,14 @@ class PoissonSolver:
         N01 = y[3]
         N02 = y[8]
 
-        # Direct method to solve for phi
-        y[-1] = self.flux_surf_avg(phi) + self.K0*N00 + self.K1*N01 + self.K2*N02
-        y[-1] /= self.coeff
+        # Direct method to solve for phi (using pre-allocated work array)
+        self.flux_surf_avg(phi, self._work_phi_avg)
+        
+        # Build RHS: <phi>_yz + K0*N00 + K1*N01 + K2*N02
+        self._work_rhs[:] = self._work_phi_avg + self.K0*N00 + self.K1*N01 + self.K2*N02
+        
+        # Solve: phi = RHS / coeff
+        y[-1][:] = self._work_rhs / self.coeff
         y[-1, self.ikx0, self.iky0, :] = 0.0
-        # Iterative method
-        if False:
-            # Initial guess for phi (ignoring flux surface average for now)
-            phi = rhs / coeff
-            
-            # Now we need to account for the flux surface average term
-            # We'll use an iterative approach to solve for phi
-            max_iter = 20
-            tol = 1e-10
-            
-            for i in range(max_iter):
-                # Compute the flux surface average of the current phi
-                phi_avg = self.flux_surf_avg(phi)
-                
-                # Update phi using the flux surface average
-                phi_new = (rhs + phi_avg) / coeff
-                
-                # Check convergence
-                phi_diff = np.max(np.abs(phi_new - phi))
-                if phi_diff < tol:
-                    break
-                    
-                phi = phi_new
         
         return y

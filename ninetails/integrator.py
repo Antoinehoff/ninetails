@@ -34,6 +34,14 @@ class Integrator:
         self.rtol = rtol
         self.verbose = verbose
         self.diagnostic = diagnostic
+        
+        # Pre-allocate work arrays for RK4 to avoid allocations in loop
+        self.k1 = None
+        self.k2 = None  
+        self.k3 = None
+        self.k4 = None
+        self.y_temp = None
+        self.rhs_temp = None
             
     def print_and_diag(self, t, y, dt):
         if self.verbose:
@@ -64,18 +72,55 @@ class Integrator:
         return t, y
 
     def rk4_step(self, rhs, t, y, dt):
-        k1 = dt * rhs(t, y)
-        k2 = dt * rhs(t + 0.5 * dt, y + 0.5 * k1)
-        k3 = dt * rhs(t + 0.5 * dt, y + 0.5 * k2)
-        k4 = dt * rhs(t + dt, y + k3)
+        """
+        Optimized RK4 step with pre-allocated arrays to avoid allocations.
+        """
+        # Initialize work arrays on first call
+        if self.k1 is None:
+            self._allocate_work_arrays(y)
         
-        y_next = y + (k1 + 2 * k2 + 2 * k3 + k4) / 6
+        # k1 = dt * rhs(t, y)
+        rhs(t, y, self.rhs_temp)
+        for i in range(len(y)):
+            self.k1[i][:] = dt * self.rhs_temp[i]
         
-        return y_next
+        # k2 = dt * rhs(t + 0.5*dt, y + 0.5*k1)
+        for i in range(len(y)):
+            self.y_temp[i][:] = y[i] + 0.5 * self.k1[i]
+        rhs(t + 0.5 * dt, self.y_temp, self.rhs_temp)
+        for i in range(len(y)):
+            self.k2[i][:] = dt * self.rhs_temp[i]
+        
+        # k3 = dt * rhs(t + 0.5*dt, y + 0.5*k2)
+        for i in range(len(y)):
+            self.y_temp[i][:] = y[i] + 0.5 * self.k2[i]
+        rhs(t + 0.5 * dt, self.y_temp, self.rhs_temp)
+        for i in range(len(y)):
+            self.k3[i][:] = dt * self.rhs_temp[i]
+        
+        # k4 = dt * rhs(t + dt, y + k3)
+        for i in range(len(y)):
+            self.y_temp[i][:] = y[i] + self.k3[i]
+        rhs(t + dt, self.y_temp, self.rhs_temp)
+        for i in range(len(y)):
+            self.k4[i][:] = dt * self.rhs_temp[i]
+        
+        # y_next = y + (k1 + 2*k2 + 2*k3 + k4) / 6
+        for i in range(len(y)):
+            y[i][:] += (self.k1[i] + 2*self.k2[i] + 2*self.k3[i] + self.k4[i]) / 6
+    
+    def _allocate_work_arrays(self, y):
+        """Allocate work arrays for RK4 integration."""
+        self.k1 = [np.zeros_like(yi) for yi in y]
+        self.k2 = [np.zeros_like(yi) for yi in y]
+        self.k3 = [np.zeros_like(yi) for yi in y]
+        self.k4 = [np.zeros_like(yi) for yi in y]
+        self.y_temp = [np.zeros_like(yi) for yi in y]
+        self.rhs_temp = [np.zeros_like(yi) for yi in y]
 
     def rk4_integrate(self, rhs, t_span, y0, dt, BC):
         t = t_span[0]
-        y = y0.copy()
+        y = [yi.copy() for yi in y0]  # Only copy once at start
         tmax = t_span[1]
         while t < tmax:
             if t + dt > tmax:
@@ -83,7 +128,7 @@ class Integrator:
             
             BC.apply(y)
             
-            y = self.rk4_step(rhs, t, y, dt)
+            self.rk4_step(rhs, t, y, dt)  # y is modified in-place
             
             self.print_and_diag(t, y, dt)
 

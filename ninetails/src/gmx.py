@@ -74,10 +74,26 @@ def Dpj(model, y, p,j):
     else:
         return model.zeros
     
-def GMX(model, t, y):
+def GMX(model, t, y, dydt_out=None):
     """
     Compute the right-hand side of the fluid equations using the 9GM framework.
+    
+    Parameters:
+    -----------
+    model : Model object
+        Contains physics parameters and operators
+    t : float
+        Current time
+    y : list of ndarrays
+        Current state vector
+    dydt_out : list of ndarrays, optional
+        Pre-allocated output arrays. If None, uses model.dydt
     """
+    # Use pre-allocated output arrays if provided
+    if dydt_out is not None:
+        dydt = dydt_out
+    else:
+        dydt = model.dydt
 
     # Access attributes from the model instance
     y = model.poisson_solver.solve(y)
@@ -87,6 +103,6 @@ def GMX(model, t, y):
 
     for n in range(9):
         p, j = ntopj(n)
-        model.dydt[n] = Mpar(p, j) + Mperp(p, j) + Dia(p, j)
+        dydt[n] = Mpar(p, j) + Mperp(p, j) + Dia(p, j)
 
-    return model.dydt
+    return dydt

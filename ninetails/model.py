@@ -35,6 +35,18 @@ class Model:
         
         self.dydt = np.array([np.zeros([self.nkx,self.nky,self.nz]) for i in range(10)],dtype=np.complex128)
         
+        # Pre-allocate temporary arrays to avoid allocations in RHS
+        self._temp1 = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        self._temp2 = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        self._temp3 = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        self._temp_n00 = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        self._temp_n01 = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        self._temp_n02 = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        self._temp_K0phi = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        self._temp_K1phi = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        self._temp_phi1 = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        self._temp_phi2 = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
+        
         # Initialize zero array template
         kx_grid, ky_grid = np.meshgrid(self.kx, self.ky, indexing='ij')
         self.zeros = np.zeros((self.nkx, self.nky, self.nz), dtype=np.complex128)
@@ -69,18 +81,18 @@ class Model:
     
         # Set the right-hand side function based on the model type
         if self.model_type == 'GMX':
-            self.rhs = lambda t, y: GMX(self, t, y)
+            self.rhs = lambda t, y, dydt_out=None: GMX(self, t, y, dydt_out)
         elif self.model_type == 'GM9':
-            self.rhs = lambda t, y: GM9(self, t, y)  # Pass self to GM9
+            self.rhs = lambda t, y, dydt_out=None: GM9(self, t, y, dydt_out)  
         elif self.model_type == 'GM4':
-            self.rhs = lambda t, y: GM4(self, t, y)  # Pass self to GM4
+            self.rhs = lambda t, y, dydt_out=None: GM4(self, t, y, dydt_out)  
         elif self.model_type == 'GM3':
-            self.rhs = lambda t, y: GM3(self, t, y)
+            self.rhs = lambda t, y, dydt_out=None: GM3(self, t, y, dydt_out)
         elif self.model_type == 'HM':
-            self.rhs = lambda t, y: hasegawa_mima_rhs(self, t, y)  # Pass self to hasegawa_mima_rhs
+            self.rhs = lambda t, y, dydt_out=None: hasegawa_mima_rhs(self, t, y, dydt_out)  
         elif self.model_type == 'HW':
-            self.rhs = lambda t, y: hasegawa_wakatani_rhs(self, t, y)  # Pass self to hasegawa_wakatani_rhs
+            self.rhs = lambda t, y, dydt_out=None: hasegawa_wakatani_rhs(self, t, y, dydt_out)  
         elif self.model_type == 'MHW':
-            self.rhs = lambda t, y: modified_hasegawa_wakatani_rhs(self, t, y)  # Pass self to modified_hasegawa_wakatani_rhs
+            self.rhs = lambda t, y, dydt_out=None: modified_hasegawa_wakatani_rhs(self, t, y, dydt_out)  
         else:
             raise ValueError("Unknown solver type: {}".format(self.model_type))

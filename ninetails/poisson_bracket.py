@@ -47,6 +47,17 @@ class PoissonBracket:
         self.size =(self.nx, self.ny)
         self.FFT = FastFourierTransform(norm=self.norm, axes=self.axes, size=self.size)
         
+        # Pre-allocate work arrays to avoid allocations in compute
+        self._work_a_filtered = np.zeros((self.nkx, self.nky), dtype=np.complex128)
+        self._work_b_filtered = np.zeros((self.nkx, self.nky), dtype=np.complex128)
+        self._work_da_dx = np.zeros((self.nkx, self.nky), dtype=np.complex128)
+        self._work_da_dy = np.zeros((self.nkx, self.nky), dtype=np.complex128)
+        self._work_db_dx = np.zeros((self.nkx, self.nky), dtype=np.complex128)
+        self._work_db_dy = np.zeros((self.nkx, self.nky), dtype=np.complex128)
+        self._work_conv1 = np.zeros((self.nkx, self.nky), dtype=np.complex128)
+        self._work_conv2 = np.zeros((self.nkx, self.nky), dtype=np.complex128)
+        self._work_result = np.zeros((self.nkx, self.nky), dtype=np.complex128)
+        
     
     def pad(self, f_hat):
         """
@@ -113,8 +124,16 @@ class PoissonBracket:
             
         return f_hat
     
-    def convolution_theorem(self, f, g):                            
-        return self.FFT.rfft2(self.FFT.irfft2(f) * self.FFT.irfft2(g))
+    def convolution_theorem(self, f, g, result=None):                            
+        """
+        Compute convolution using FFT. If result is provided, store output there.
+        """
+        conv = self.FFT.rfft2(self.FFT.irfft2(f) * self.FFT.irfft2(g))
+        if result is not None:
+            result[:] = conv
+            return result
+        else:
+            return conv
         
     def compute_filtering(self, a_hat, b_hat):
         
@@ -127,7 +146,10 @@ class PoissonBracket:
         
         # Initialize the result array
         result_shape = a_hat.shape
-        result = np.zeros(result_shape, dtype=np.complex128)
+        if has_z:
+            result = np.zeros(result_shape, dtype=np.complex128)
+        else:
+            result = self._work_result
         
         ky_pb_2d = self.kx
         kx_pb_2d = self.ky
@@ -138,28 +160,30 @@ class PoissonBracket:
             a_hat_2d = a_hat[:, :, iz] if has_z else a_hat
             b_hat_2d = b_hat[:, :, iz] if has_z else b_hat
 
-            # Apply the 2/3 rule filter
-            a_hat_pb = self.filter * a_hat_2d
-            b_hat_pb = self.filter * b_hat_2d
+            # Apply the 2/3 rule filter (use pre-allocated arrays)
+            self._work_a_filtered[:] = self.filter * a_hat_2d
+            self._work_b_filtered[:] = self.filter * b_hat_2d
             
-            # Compute derivatives in Fourier space
-            da_dx_pb = 1j * kx_pb_2d * a_hat_pb
-            da_dy_pb = 1j * ky_pb_2d * a_hat_pb
-            db_dx_pb = 1j * kx_pb_2d * b_hat_pb
-            db_dy_pb = 1j * ky_pb_2d * b_hat_pb
+            # Compute derivatives in Fourier space (use pre-allocated arrays)
+            self._work_da_dx[:] = 1j * kx_pb_2d * self._work_a_filtered
+            self._work_da_dy[:] = 1j * ky_pb_2d * self._work_a_filtered
+            self._work_db_dx[:] = 1j * kx_pb_2d * self._work_b_filtered
+            self._work_db_dy[:] = 1j * ky_pb_2d * self._work_b_filtered
             
             # Compute Poisson bracket in Fourier space using convolution theorem
-            pb_hat_pb = self.convolution_theorem(da_dx_pb, db_dy_pb) \
-                       -self.convolution_theorem(da_dy_pb, db_dx_pb)
+            self.convolution_theorem(self._work_da_dx, self._work_db_dy, self._work_conv1)
+            self.convolution_theorem(self._work_da_dy, self._work_db_dx, self._work_conv2)
+            
+            self._work_result[:] = self._work_conv1 - self._work_conv2
             
             # Filter the result
-            pb_hat = self.filter * pb_hat_pb
+            self._work_result[:] = self.filter * self._work_result
             
             # Store the result
             if has_z:
-                result[:, :, iz] = pb_hat
+                result[:, :, iz] = self._work_result
             else:
-                result = pb_hat
+                result = self._work_result
         
         return result
     
